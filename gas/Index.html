@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, "Malgun Gothic", sans-serif; margin: 0; padding: 16px; background: #f5f5f5; color: #222; }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    h2 { font-size: 16px; margin: 24px 0 8px; }
+    .card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+    label { display: block; font-size: 13px; color: #555; margin: 8px 0 4px; }
+    input, select, textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    button { margin-top: 12px; padding: 10px 16px; border: none; border-radius: 4px; background: #4a7c59; color: #fff; font-size: 14px; cursor: pointer; }
+    button.secondary { background: #888; }
+    button.small { padding: 4px 10px; font-size: 12px; margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid #eee; }
+    .status-done { color: #4a7c59; font-weight: bold; }
+    .status-pending { color: #c07d00; font-weight: bold; }
+    .balance { font-size: 24px; font-weight: bold; }
+    .diff-ok { color: #4a7c59; }
+    .diff-bad { color: #c0392b; }
+    .msg { font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>가족 공동통장 관리</h1>
+  <div id="ym-label" style="color:#666; font-size:13px;"></div>
+
+  <div class="card">
+    <div class="balance">시스템 잔액: <span id="system-balance">-</span>원</div>
+  </div>
+
+  <div class="card">
+    <h2>이번 달 납부</h2>
+    <label>이름</label>
+    <select id="pay-name"></select>
+    <label>납부 금액(원)</label>
+    <input type="number" id="pay-amount" placeholder="예: 200000">
+    <button onclick="doPayment()">납부 등록</button>
+    <div class="msg" id="pay-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>지출 청구 (내가 먼저 쓰고 청구)</h2>
+    <label>청구자</label>
+    <select id="claim-name"></select>
+    <label>항목</label>
+    <select id="claim-category">
+      <option>공과금</option>
+      <option>월세</option>
+      <option>생활비</option>
+      <option>기타</option>
+    </select>
+    <label>금액(원)</label>
+    <input type="number" id="claim-amount" placeholder="예: 50000">
+    <label>메모</label>
+    <input type="text" id="claim-memo" placeholder="예: 7월 전기요금">
+    <button onclick="doClaim()">청구 등록</button>
+    <div class="msg" id="claim-msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>이번 달 납부 현황</h2>
+    <table id="payment-table"><thead><tr><th>이름</th><th>금액</th><th>상태</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>지출 청구 목록 (보스: 이체 후 완료 처리)</h2>
+    <table id="claim-table"><thead><tr><th>청구자</th><th>항목</th><th>금액</th><th>메모</th><th>상태</th><th></th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>렌탈료(정기지출) 등록</h2>
+    <label>항목명</label>
+    <input type="text" id="rec-name" placeholder="예: 정수기 렌탈">
+    <label>정기 금액(원)</label>
+    <input type="number" id="rec-amount">
+    <label>주기</label>
+    <select id="rec-cycle"><option>매월</option><option>격월</option><option>분기</option></select>
+    <button onclick="doRecurring()">등록</button>
+    <div class="msg" id="rec-msg"></div>
+    <table id="recurring-table" style="margin-top:12px;"><thead><tr><th>항목</th><th>금액</th><th>주기</th></tr></thead><tbody></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>잔액 대사 (실제 통장 잔액과 비교)</h2>
+    <label>실제 통장 잔액(원)</label>
+    <input type="number" id="actual-balance">
+    <button onclick="doReconcile()">대사하기</button>
+    <div class="msg" id="reconcile-msg"></div>
+  </div>
+
+  <script>
+    function currentYearMonth() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+    const YM = currentYearMonth();
+    document.getElementById('ym-label').textContent = YM + ' 기준';
+
+    function fmt(n) { return Number(n || 0).toLocaleString(); }
+
+    function loadDashboard() {
+      google.script.run.withSuccessHandler(renderDashboard).getDashboard(YM);
+    }
+
+    function renderDashboard(data) {
+      // 이름 셀렉트 채우기
+      ['pay-name', 'claim-name'].forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = data.members.map(m => `<option>${m.name}</option>`).join('');
+      });
+
+      document.getElementById('system-balance').textContent = fmt(data.systemBalance);
+
+      const payBody = document.querySelector('#payment-table tbody');
+      payBody.innerHTML = data.payments.map(p =>
+        `<tr><td>${p.name}</td><td>${fmt(p.amount)}</td><td class="status-done">${p.status}</td></tr>`
+      ).join('') || '<tr><td colspan="3">아직 없음</td></tr>';
+
+      const claimBody = document.querySelector('#claim-table tbody');
+      claimBody.innerHTML = data.claims.map(c => {
+        const statusClass = c.status === '이체완료' ? 'status-done' : 'status-pending';
+        const btn = c.status === '청구중'
+          ? `<button class="small" onclick="markDone('${c.claimId}')">이체완료 처리</button>`
+          : '';
+        return `<tr><td>${c.claimant}</td><td>${c.category}</td><td>${fmt(c.amount)}</td><td>${c.memo}</td><td class="${statusClass}">${c.status}</td><td>${btn}</td></tr>`;
+      }).join('') || '<tr><td colspan="6">아직 없음</td></tr>';
+
+      const recBody = document.querySelector('#recurring-table tbody');
+      recBody.innerHTML = data.recurring.map(r =>
+        `<tr><td>${r.name}</td><td>${fmt(r.amount)}</td><td>${r.cycle}</td></tr>`
+      ).join('') || '<tr><td colspan="3">아직 없음</td></tr>';
+    }
+
+    function doPayment() {
+      const name = document.getElementById('pay-name').value;
+      const amount = document.getElementById('pay-amount').value;
+      if (!amount) { document.getElementById('pay-msg').textContent = '금액을 입력해주세요.'; return; }
+      google.script.run.withSuccessHandler(() => {
+        document.getElementById('pay-msg').textContent = '등록 완료!';
+        document.getElementById('pay-amount').value = '';
+        loadDashboard();
+      }).withFailureHandler(e => document.getElementById('pay-msg').textContent = '오류: ' + e.message)
+        .recordPayment(YM, name, amount);
+    }
+
+    function doClaim() {
+      const claimant = document.getElementById('claim-name').value;
+      const category = document.getElementById('claim-category').value;
+      const amount = document.getElementById('claim-amount').value;
+      const memo = document.getElementById('claim-memo').value;
+      if (!amount) { document.getElementById('claim-msg').textContent = '금액을 입력해주세요.'; return; }
+      google.script.run.withSuccessHandler(() => {
+        document.getElementById('claim-msg').textContent = '청구 완료!';
+        document.getElementById('claim-amount').value = '';
+        document.getElementById('claim-memo').value = '';
+        loadDashboard();
+      }).withFailureHandler(e => document.getElementById('claim-msg').textContent = '오류: ' + e.message)
+        .submitExpenseClaim(claimant, category, amount, memo);
+    }
+
+    function markDone(claimId) {
+      google.script.run.withSuccessHandler(loadDashboard).markReimbursed(claimId);
+    }
+
+    function doRecurring() {
+      const name = document.getElementById('rec-name').value;
+      const amount = document.getElementById('rec-amount').value;
+      const cycle = document.getElementById('rec-cycle').value;
+      if (!name || !amount) { document.getElementById('rec-msg').textContent = '항목명/금액을 입력해주세요.'; return; }
+      google.script.run.withSuccessHandler(() => {
+        document.getElementById('rec-msg').textContent = '등록 완료!';
+        document.getElementById('rec-name').value = '';
+        document.getElementById('rec-amount').value = '';
+        loadDashboard();
+      }).withFailureHandler(e => document.getElementById('rec-msg').textContent = '오류: ' + e.message)
+        .registerRecurring(name, amount, cycle, '');
+    }
+
+    function doReconcile() {
+      const actual = document.getElementById('actual-balance').value;
+      if (!actual) { document.getElementById('reconcile-msg').textContent = '실제 잔액을 입력해주세요.'; return; }
+      google.script.run.withSuccessHandler(r => {
+        const diffClass = r.diff === 0 ? 'diff-ok' : 'diff-bad';
+        document.getElementById('reconcile-msg').innerHTML =
+          `시스템 잔액 ${fmt(r.systemBalance)}원 vs 실제 ${fmt(r.actualBalance)}원 → <span class="${diffClass}">차이 ${fmt(r.diff)}원</span>`;
+      }).withFailureHandler(e => document.getElementById('reconcile-msg').textContent = '오류: ' + e.message)
+        .recordActualBalance(YM, actual);
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>
