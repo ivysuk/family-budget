@@ -254,7 +254,7 @@ function renderRings(data) {
       <div class="ring-amt">${fmt(paid)}${effectiveTarget ? ' / ' + fmt(effectiveTarget) : ''}</div>
       ${carryoverNote}
       <div class="ring-edit">
-        <input type="text" inputmode="numeric" class="money" placeholder="목표 수정" id="target-${m.name}">
+        <input type="text" inputmode="numeric" class="money" placeholder="목표" id="target-${m.name}">
         <button onclick="doSetTarget('${m.name}')">저장</button>
       </div>
     </div>`;
