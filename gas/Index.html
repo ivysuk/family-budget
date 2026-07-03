@@ -3,93 +3,289 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: -apple-system, "Malgun Gothic", sans-serif; margin: 0; padding: 16px; background: #f5f5f5; color: #222; }
-    h1 { font-size: 20px; margin-bottom: 4px; }
-    h2 { font-size: 16px; margin: 24px 0 8px; }
-    .card { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-    label { display: block; font-size: 13px; color: #555; margin: 8px 0 4px; }
-    input, select, textarea { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
-    button { margin-top: 12px; padding: 10px 16px; border: none; border-radius: 4px; background: #4a7c59; color: #fff; font-size: 14px; cursor: pointer; }
-    button.secondary { background: #888; }
-    button.small { padding: 4px 10px; font-size: 12px; margin-top: 0; }
+    :root {
+      --ink: #1F2E29;
+      --ink-soft: #56655F;
+      --paper: #F1F3ED;
+      --card: #FCFDFB;
+      --line: #DCE3DA;
+      --accent: #2F5D50;
+      --accent-soft: #DCE8E1;
+      --gold: #B8862E;
+      --good: #2E8B57;
+      --good-soft: #E3F2E8;
+      --warn: #B8792A;
+      --warn-soft: #FBEEDD;
+      --bad: #B0432E;
+      --bad-soft: #FBE7E2;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      margin: 0;
+      padding: 0 0 48px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2 {
+      font-family: 'Gowun Batang', serif;
+      font-weight: 700;
+      text-wrap: balance;
+      margin: 0;
+    }
+
+    header.passbook {
+      background: var(--accent);
+      color: #F3F1E9;
+      padding: 28px 20px 32px;
+      border-radius: 0 0 20px 20px;
+    }
+    header.passbook .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #BFD6CC;
+      margin-bottom: 6px;
+    }
+    header.passbook h1 { font-size: 22px; color: #fff; }
+    header.passbook .ym { font-size: 13px; color: #BFD6CC; margin-top: 4px; }
+
+    .balance-line {
+      margin-top: 20px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-top: 1px dashed rgba(255,255,255,.3);
+      padding-top: 16px;
+    }
+    .balance-line .label { font-size: 13px; color: #BFD6CC; }
+    .balance-line .value {
+      font-family: 'Noto Sans KR', sans-serif;
+      font-variant-numeric: tabular-nums;
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .balance-line .value::after { content: '원'; font-size: 15px; font-weight: 500; color: #E3D3AE; margin-left: 4px; }
+
+    main { max-width: 480px; margin: 0 auto; padding: 20px 16px 0; display: flex; flex-direction: column; gap: 16px; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 18px 18px 20px;
+    }
+    .card h2 {
+      font-size: 16px;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+    .card .sub { font-size: 12px; color: var(--ink-soft); margin-bottom: 14px; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink-soft);
+      margin: 12px 0 5px;
+    }
+    label:first-of-type { margin-top: 0; }
+
+    input, select {
+      width: 100%;
+      padding: 10px 11px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #fff;
+      color: var(--ink);
+    }
+    input:focus, select:focus, button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    input[type="number"] { font-variant-numeric: tabular-nums; }
+
+    button {
+      margin-top: 14px;
+      padding: 11px 18px;
+      border: none;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover { background: #26493F; }
+    button.small {
+      width: auto;
+      margin-top: 0;
+      padding: 6px 12px;
+      font-size: 12px;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    button.small:hover { background: #C9DBD1; }
+
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid #eee; }
-    .status-done { color: #4a7c59; font-weight: bold; }
-    .status-pending { color: #c07d00; font-weight: bold; }
-    .balance { font-size: 24px; font-weight: bold; }
-    .diff-ok { color: #4a7c59; }
-    .diff-bad { color: #c0392b; }
-    .msg { font-size: 13px; margin-top: 8px; }
+    th {
+      text-align: left;
+      font-size: 11px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 600;
+      padding: 0 6px 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    td {
+      padding: 9px 6px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    td.num { font-variant-numeric: tabular-nums; text-align: right; }
+    .table-wrap { overflow-x: auto; }
+    .empty-row td { color: var(--ink-soft); text-align: center; padding: 16px 6px; }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pill.done { background: var(--good-soft); color: var(--good); }
+    .pill.pending { background: var(--warn-soft); color: var(--warn); }
+
+    .msg { font-size: 12.5px; margin-top: 10px; min-height: 1em; }
+    .msg.ok { color: var(--good); }
+    .msg.err { color: var(--bad); }
+
+    .reconcile-result {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 7px;
+      background: var(--accent-soft);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .reconcile-result .diff { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .reconcile-result .diff.ok { color: var(--good); }
+    .reconcile-result .diff.bad { color: var(--bad); }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .card { transition: border-color .15s ease; }
+    }
   </style>
 </head>
 <body>
-  <h1>가족 공동통장 관리</h1>
-  <div id="ym-label" style="color:#666; font-size:13px;"></div>
+  <header class="passbook">
+    <div class="eyebrow">Family Ledger</div>
+    <h1>가족 공동통장</h1>
+    <div class="ym" id="ym-label"></div>
+    <div class="balance-line">
+      <span class="label">현재 시스템 잔액</span>
+      <span class="value" id="system-balance">0</span>
+    </div>
+  </header>
 
-  <div class="card">
-    <div class="balance">시스템 잔액: <span id="system-balance">-</span>원</div>
-  </div>
+  <main>
+    <section class="card">
+      <h2>이번 달 납부</h2>
+      <div class="sub">형편에 맞는 금액을 각자 입력해주세요</div>
+      <label>이름</label>
+      <select id="pay-name"></select>
+      <label>납부 금액(원)</label>
+      <input type="number" id="pay-amount" placeholder="예: 200000">
+      <button onclick="doPayment()">납부 등록</button>
+      <div class="msg" id="pay-msg"></div>
+    </section>
 
-  <div class="card">
-    <h2>이번 달 납부</h2>
-    <label>이름</label>
-    <select id="pay-name"></select>
-    <label>납부 금액(원)</label>
-    <input type="number" id="pay-amount" placeholder="예: 200000">
-    <button onclick="doPayment()">납부 등록</button>
-    <div class="msg" id="pay-msg"></div>
-  </div>
+    <section class="card">
+      <h2>지출 청구</h2>
+      <div class="sub">먼저 쓰고 청구하면, 확인 후 이체해드려요</div>
+      <label>청구자</label>
+      <select id="claim-name"></select>
+      <label>항목</label>
+      <select id="claim-category">
+        <option>공과금</option>
+        <option>월세</option>
+        <option>생활비</option>
+        <option>기타</option>
+      </select>
+      <label>금액(원)</label>
+      <input type="number" id="claim-amount" placeholder="예: 50000">
+      <label>메모</label>
+      <input type="text" id="claim-memo" placeholder="예: 7월 전기요금">
+      <button onclick="doClaim()">청구 등록</button>
+      <div class="msg" id="claim-msg"></div>
+    </section>
 
-  <div class="card">
-    <h2>지출 청구 (내가 먼저 쓰고 청구)</h2>
-    <label>청구자</label>
-    <select id="claim-name"></select>
-    <label>항목</label>
-    <select id="claim-category">
-      <option>공과금</option>
-      <option>월세</option>
-      <option>생활비</option>
-      <option>기타</option>
-    </select>
-    <label>금액(원)</label>
-    <input type="number" id="claim-amount" placeholder="예: 50000">
-    <label>메모</label>
-    <input type="text" id="claim-memo" placeholder="예: 7월 전기요금">
-    <button onclick="doClaim()">청구 등록</button>
-    <div class="msg" id="claim-msg"></div>
-  </div>
+    <section class="card">
+      <h2>이번 달 납부 현황</h2>
+      <div class="table-wrap">
+        <table id="payment-table">
+          <thead><tr><th>이름</th><th style="text-align:right">금액</th><th>상태</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
 
-  <div class="card">
-    <h2>이번 달 납부 현황</h2>
-    <table id="payment-table"><thead><tr><th>이름</th><th>금액</th><th>상태</th></tr></thead><tbody></tbody></table>
-  </div>
+    <section class="card">
+      <h2>지출 청구 목록</h2>
+      <div class="sub">이체하셨으면 완료 처리해주세요</div>
+      <div class="table-wrap">
+        <table id="claim-table">
+          <thead><tr><th>청구자</th><th>항목</th><th style="text-align:right">금액</th><th>상태</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
 
-  <div class="card">
-    <h2>지출 청구 목록 (보스: 이체 후 완료 처리)</h2>
-    <table id="claim-table"><thead><tr><th>청구자</th><th>항목</th><th>금액</th><th>메모</th><th>상태</th><th></th></tr></thead><tbody></tbody></table>
-  </div>
+    <section class="card">
+      <h2>렌탈료 · 정기지출</h2>
+      <label>항목명</label>
+      <input type="text" id="rec-name" placeholder="예: 정수기 렌탈">
+      <label>정기 금액(원)</label>
+      <input type="number" id="rec-amount">
+      <label>주기</label>
+      <select id="rec-cycle"><option>매월</option><option>격월</option><option>분기</option></select>
+      <button onclick="doRecurring()">등록</button>
+      <div class="msg" id="rec-msg"></div>
+      <div class="table-wrap" style="margin-top:10px;">
+        <table id="recurring-table">
+          <thead><tr><th>항목</th><th style="text-align:right">금액</th><th>주기</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
 
-  <div class="card">
-    <h2>렌탈료(정기지출) 등록</h2>
-    <label>항목명</label>
-    <input type="text" id="rec-name" placeholder="예: 정수기 렌탈">
-    <label>정기 금액(원)</label>
-    <input type="number" id="rec-amount">
-    <label>주기</label>
-    <select id="rec-cycle"><option>매월</option><option>격월</option><option>분기</option></select>
-    <button onclick="doRecurring()">등록</button>
-    <div class="msg" id="rec-msg"></div>
-    <table id="recurring-table" style="margin-top:12px;"><thead><tr><th>항목</th><th>금액</th><th>주기</th></tr></thead><tbody></tbody></table>
-  </div>
-
-  <div class="card">
-    <h2>잔액 대사 (실제 통장 잔액과 비교)</h2>
-    <label>실제 통장 잔액(원)</label>
-    <input type="number" id="actual-balance">
-    <button onclick="doReconcile()">대사하기</button>
-    <div class="msg" id="reconcile-msg"></div>
-  </div>
+    <section class="card">
+      <h2>잔액 대사</h2>
+      <div class="sub">실제 통장 잔액과 시스템 잔액을 비교합니다</div>
+      <label>실제 통장 잔액(원)</label>
+      <input type="number" id="actual-balance">
+      <button onclick="doReconcile()">대사하기</button>
+      <div id="reconcile-msg"></div>
+    </section>
+  </main>
 
   <script>
     function currentYearMonth() {
@@ -106,7 +302,6 @@
     }
 
     function renderDashboard(data) {
-      // 이름 셀렉트 채우기
       ['pay-name', 'claim-name'].forEach(id => {
         const sel = document.getElementById(id);
         sel.innerHTML = data.members.map(m => `<option>${m.name}</option>`).join('');
@@ -116,33 +311,39 @@
 
       const payBody = document.querySelector('#payment-table tbody');
       payBody.innerHTML = data.payments.map(p =>
-        `<tr><td>${p.name}</td><td>${fmt(p.amount)}</td><td class="status-done">${p.status}</td></tr>`
-      ).join('') || '<tr><td colspan="3">아직 없음</td></tr>';
+        `<tr><td>${p.name}</td><td class="num">${fmt(p.amount)}</td><td><span class="pill done">${p.status}</span></td></tr>`
+      ).join('') || '<tr class="empty-row"><td colspan="3">아직 없음</td></tr>';
 
       const claimBody = document.querySelector('#claim-table tbody');
       claimBody.innerHTML = data.claims.map(c => {
-        const statusClass = c.status === '이체완료' ? 'status-done' : 'status-pending';
+        const pillClass = c.status === '이체완료' ? 'done' : 'pending';
         const btn = c.status === '청구중'
-          ? `<button class="small" onclick="markDone('${c.claimId}')">이체완료 처리</button>`
+          ? `<button class="small" onclick="markDone('${c.claimId}')">완료 처리</button>`
           : '';
-        return `<tr><td>${c.claimant}</td><td>${c.category}</td><td>${fmt(c.amount)}</td><td>${c.memo}</td><td class="${statusClass}">${c.status}</td><td>${btn}</td></tr>`;
-      }).join('') || '<tr><td colspan="6">아직 없음</td></tr>';
+        return `<tr><td>${c.claimant}<br><span style="color:var(--ink-soft);font-size:11px">${c.memo || ''}</span></td><td>${c.category}</td><td class="num">${fmt(c.amount)}</td><td><span class="pill ${pillClass}">${c.status}</span></td><td>${btn}</td></tr>`;
+      }).join('') || '<tr class="empty-row"><td colspan="5">아직 없음</td></tr>';
 
       const recBody = document.querySelector('#recurring-table tbody');
       recBody.innerHTML = data.recurring.map(r =>
-        `<tr><td>${r.name}</td><td>${fmt(r.amount)}</td><td>${r.cycle}</td></tr>`
-      ).join('') || '<tr><td colspan="3">아직 없음</td></tr>';
+        `<tr><td>${r.name}</td><td class="num">${fmt(r.amount)}</td><td>${r.cycle}</td></tr>`
+      ).join('') || '<tr class="empty-row"><td colspan="3">아직 없음</td></tr>';
+    }
+
+    function setMsg(id, text, ok) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = 'msg ' + (ok ? 'ok' : 'err');
     }
 
     function doPayment() {
       const name = document.getElementById('pay-name').value;
       const amount = document.getElementById('pay-amount').value;
-      if (!amount) { document.getElementById('pay-msg').textContent = '금액을 입력해주세요.'; return; }
+      if (!amount) { setMsg('pay-msg', '금액을 입력해주세요.', false); return; }
       google.script.run.withSuccessHandler(() => {
-        document.getElementById('pay-msg').textContent = '등록 완료!';
+        setMsg('pay-msg', '등록 완료했습니다.', true);
         document.getElementById('pay-amount').value = '';
         loadDashboard();
-      }).withFailureHandler(e => document.getElementById('pay-msg').textContent = '오류: ' + e.message)
+      }).withFailureHandler(e => setMsg('pay-msg', '오류: ' + e.message, false))
         .recordPayment(YM, name, amount);
     }
 
@@ -151,13 +352,13 @@
       const category = document.getElementById('claim-category').value;
       const amount = document.getElementById('claim-amount').value;
       const memo = document.getElementById('claim-memo').value;
-      if (!amount) { document.getElementById('claim-msg').textContent = '금액을 입력해주세요.'; return; }
+      if (!amount) { setMsg('claim-msg', '금액을 입력해주세요.', false); return; }
       google.script.run.withSuccessHandler(() => {
-        document.getElementById('claim-msg').textContent = '청구 완료!';
+        setMsg('claim-msg', '청구했습니다.', true);
         document.getElementById('claim-amount').value = '';
         document.getElementById('claim-memo').value = '';
         loadDashboard();
-      }).withFailureHandler(e => document.getElementById('claim-msg').textContent = '오류: ' + e.message)
+      }).withFailureHandler(e => setMsg('claim-msg', '오류: ' + e.message, false))
         .submitExpenseClaim(claimant, category, amount, memo);
     }
 
@@ -169,24 +370,24 @@
       const name = document.getElementById('rec-name').value;
       const amount = document.getElementById('rec-amount').value;
       const cycle = document.getElementById('rec-cycle').value;
-      if (!name || !amount) { document.getElementById('rec-msg').textContent = '항목명/금액을 입력해주세요.'; return; }
+      if (!name || !amount) { setMsg('rec-msg', '항목명/금액을 입력해주세요.', false); return; }
       google.script.run.withSuccessHandler(() => {
-        document.getElementById('rec-msg').textContent = '등록 완료!';
+        setMsg('rec-msg', '등록했습니다.', true);
         document.getElementById('rec-name').value = '';
         document.getElementById('rec-amount').value = '';
         loadDashboard();
-      }).withFailureHandler(e => document.getElementById('rec-msg').textContent = '오류: ' + e.message)
+      }).withFailureHandler(e => setMsg('rec-msg', '오류: ' + e.message, false))
         .registerRecurring(name, amount, cycle, '');
     }
 
     function doReconcile() {
       const actual = document.getElementById('actual-balance').value;
-      if (!actual) { document.getElementById('reconcile-msg').textContent = '실제 잔액을 입력해주세요.'; return; }
+      const box = document.getElementById('reconcile-msg');
+      if (!actual) { box.innerHTML = '<div class="msg err">실제 잔액을 입력해주세요.</div>'; return; }
       google.script.run.withSuccessHandler(r => {
-        const diffClass = r.diff === 0 ? 'diff-ok' : 'diff-bad';
-        document.getElementById('reconcile-msg').innerHTML =
-          `시스템 잔액 ${fmt(r.systemBalance)}원 vs 실제 ${fmt(r.actualBalance)}원 → <span class="${diffClass}">차이 ${fmt(r.diff)}원</span>`;
-      }).withFailureHandler(e => document.getElementById('reconcile-msg').textContent = '오류: ' + e.message)
+        const ok = r.diff === 0;
+        box.innerHTML = `<div class="reconcile-result">시스템 ${fmt(r.systemBalance)}원 · 실제 ${fmt(r.actualBalance)}원<br>차이 <span class="diff ${ok ? 'ok' : 'bad'}">${fmt(r.diff)}원${ok ? ' (일치)' : ''}</span></div>`;
+      }).withFailureHandler(e => box.innerHTML = `<div class="msg err">오류: ${e.message}</div>`)
         .recordActualBalance(YM, actual);
     }
 
