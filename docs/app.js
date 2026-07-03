@@ -177,11 +177,12 @@ function renderDashboard(data) {
   document.getElementById('system-balance').closest('.hero').classList.remove('skel-hero');
   document.getElementById('ring-grid').classList.remove('skel-rings');
 
+  const activeMembers = data.members.filter(m => m.status !== '휴면');
   ['pay-name', 'claim-name'].forEach(id => {
     const sel = document.getElementById(id);
     const prev = sel.value;
-    sel.innerHTML = data.members.map(m => `<option>${m.name}</option>`).join('');
-    if (data.members.some(m => m.name === prev)) sel.value = prev;
+    sel.innerHTML = activeMembers.map(m => `<option>${m.name}</option>`).join('');
+    if (activeMembers.some(m => m.name === prev)) sel.value = prev;
   });
 
   const catSel = document.getElementById('claim-category');
@@ -191,6 +192,7 @@ function renderDashboard(data) {
 
   animateNumber(document.getElementById('system-balance'), data.systemBalance);
   document.getElementById('initial-balance-input').value = data.initialBalance ? fmt(data.initialBalance) : '';
+  renderMemberList(data.members);
 
   renderRings(data);
   renderBreakdown(data.categoryBreakdown || []);
@@ -201,7 +203,8 @@ function renderDashboard(data) {
 }
 
 function renderHeroStats(data) {
-  const totalTarget = data.members.reduce((s, m) => s + (m.effectiveTarget != null ? m.effectiveTarget : (m.target || 0)), 0);
+  const activeMembers = data.members.filter(m => m.status !== '휴면');
+  const totalTarget = activeMembers.reduce((s, m) => s + (m.effectiveTarget != null ? m.effectiveTarget : (m.target || 0)), 0);
   const totalPaid = data.payments.reduce((s, p) => s + Number(p.amount), 0);
   const pct = totalTarget > 0 ? Math.min(100, Math.round(totalPaid / totalTarget * 100)) : 0;
   document.getElementById('hero-goal-progress').textContent = totalTarget > 0 ? pct + '%' : '목표 미설정';
@@ -229,6 +232,7 @@ function renderRings(data) {
     return;
   }
   list.innerHTML = data.members.map(m => {
+    const dormant = m.status === '휴면';
     const paid = paidByName[m.name] || 0;
     const target = m.target || 0;
     const carryover = m.carryover || 0;
@@ -238,10 +242,16 @@ function renderRings(data) {
     const size = 68, stroke = 6, r = (size - stroke) / 2, c = 2 * Math.PI * r;
     const offset = c * (1 - pct / 100);
     const color = complete ? 'var(--good)' : 'var(--accent)';
-    const carryoverNote = carryover > 0
+    const carryoverNote = (!dormant && carryover > 0)
       ? `<div class="ring-carry">이월 ${fmt(carryover)}원 포함</div>`
       : '';
-    return `<div class="ring-item">
+    const controls = dormant
+      ? `<div class="ring-dormant-pill">휴면중</div>`
+      : `<div class="ring-edit">
+        <input type="text" inputmode="numeric" class="money" placeholder="목표" id="target-${m.name}">
+        <button onclick="doSetTarget('${m.name}')">저장</button>
+      </div>`;
+    return `<div class="ring-item${dormant ? ' dormant' : ''}">
       <div class="ring-wrap">
         <svg width="${size}" height="${size}">
           <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--accent-soft)" stroke-width="${stroke}"/>
@@ -253,10 +263,7 @@ function renderRings(data) {
       <div class="ring-name">${m.name}</div>
       <div class="ring-amt">${fmt(paid)}${effectiveTarget ? ' / ' + fmt(effectiveTarget) : ''}</div>
       ${carryoverNote}
-      <div class="ring-edit">
-        <input type="text" inputmode="numeric" class="money" placeholder="목표" id="target-${m.name}">
-        <button onclick="doSetTarget('${m.name}')">저장</button>
-      </div>
+      ${controls}
     </div>`;
   }).join('');
 }
@@ -300,6 +307,20 @@ function renderClaimList(claims) {
   }).join('');
 }
 
+function renderMemberList(members) {
+  const box = document.getElementById('member-list');
+  if (!box) return;
+  if (!members.length) { box.innerHTML = '<div class="empty-state">등록된 구성원이 없어요.</div>'; return; }
+  box.innerHTML = members.map(m => {
+    const dormant = m.status === '휴면';
+    return `<div class="list-row">
+      <div class="list-icon${dormant ? '' : ' gold'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg></div>
+      <div class="list-body"><div class="list-title">${m.name}</div><div class="list-sub">월 목표 ${fmt(m.target)}원</div></div>
+      <div class="list-right"><button class="btn small" onclick="doToggleStatus('${m.name}','${m.status}')">${dormant ? '휴면 해제' : '휴면 전환'}</button></div>
+    </div>`;
+  }).join('');
+}
+
 function renderRecurringList(items) {
   const box = document.getElementById('recurring-list');
   if (!items.length) { box.innerHTML = '<div class="empty-state">등록된 정기지출이 없어요.</div>'; return; }
@@ -327,6 +348,24 @@ function doSetTarget(name) {
   const raw = rawNumber(document.getElementById('target-' + name));
   if (!raw) return;
   api('setTarget', { name: name, amount: raw }).then(loadDashboard);
+}
+
+function doAddMember() {
+  const name = document.getElementById('member-name').value.trim();
+  const target = rawNumber(document.getElementById('member-target'));
+  if (!name) { setMsg('member-msg', '이름을 입력해주세요.', false); return; }
+  api('addMember', { name: name, target: target || 0 }).then(r => {
+    if (r.error) { setMsg('member-msg', r.error, false); return; }
+    setMsg('member-msg', '추가했습니다.', true);
+    document.getElementById('member-name').value = '';
+    document.getElementById('member-target').value = '';
+    loadDashboard();
+  }).catch(e => setMsg('member-msg', '오류: ' + e.message, false));
+}
+
+function doToggleStatus(name, currentStatus) {
+  const next = currentStatus === '휴면' ? '활성' : '휴면';
+  api('setMemberStatus', { name: name, status: next }).then(loadDashboard);
 }
 
 function doPayment() {

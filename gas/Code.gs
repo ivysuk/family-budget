@@ -32,6 +32,8 @@ function handleApi(e) {
       case 'registerRecurring': result = registerRecurring(p.name, p.amount, p.cycle); break;
       case 'addCategory': result = addCategory(p.name); break;
       case 'setTarget': result = setMemberTarget(p.name, p.amount); break;
+      case 'addMember': result = addMember(p.name, p.target); break;
+      case 'setMemberStatus': result = setMemberStatus(p.name, p.status); break;
       case 'setInitialBalance': result = setInitialBalance(p.amount); break;
       case 'reconcile': result = recordActualBalance(p.ym, p.amount); break;
       case 'categoryBreakdown': result = getCategoryBreakdown(p.ym); break;
@@ -83,6 +85,9 @@ function ensureSheetsExist() {
   if (headers.indexOf('월목표금액') === -1) {
     fam.getRange(1, lastCol + 1).setValue('월목표금액');
   }
+  if (headers.indexOf('상태') === -1) {
+    fam.getRange(1, fam.getLastColumn() + 1).setValue('상태');
+  }
 }
 
 // -------------------------------------------------------------------------
@@ -122,13 +127,32 @@ function getFamilyMembers() {
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
   const targetIdx = headers.indexOf('월목표금액');
+  const statusIdx = headers.indexOf('상태');
   return data.slice(1)
     .filter(row => row[0])
     .map(row => ({
       name: row[0],
       contact: row[1] || '',
       target: targetIdx >= 0 ? (Number(row[targetIdx]) || 0) : 0,
+      status: (statusIdx >= 0 && row[statusIdx]) ? row[statusIdx] : '활성',
     }));
+}
+
+function addMember(name, target) {
+  if (!name) throw new Error('이름이 필요합니다.');
+  const sheet = getSheet('가족구성원');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const targetIdx = headers.indexOf('월목표금액');
+  const statusIdx = headers.indexOf('상태');
+  if (data.slice(1).some(row => row[0] === name)) {
+    return { ok: false, error: '이미 있는 이름입니다: ' + name };
+  }
+  const rowNum = sheet.getLastRow() + 1;
+  sheet.getRange(rowNum, 1).setValue(name);
+  if (targetIdx >= 0) sheet.getRange(rowNum, targetIdx + 1).setValue(Number(target) || 0);
+  if (statusIdx >= 0) sheet.getRange(rowNum, statusIdx + 1).setValue('활성');
+  return { ok: true };
 }
 
 function setMemberTarget(name, amount) {
@@ -139,6 +163,21 @@ function setMemberTarget(name, amount) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === name) {
       sheet.getRange(i + 1, targetIdx + 1).setValue(Number(amount));
+      return { ok: true };
+    }
+  }
+  return { ok: false, error: '구성원을 찾을 수 없음: ' + name };
+}
+
+function setMemberStatus(name, status) {
+  if (status !== '활성' && status !== '휴면') throw new Error('상태는 활성/휴면 중 하나여야 합니다.');
+  const sheet = getSheet('가족구성원');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const statusIdx = headers.indexOf('상태');
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === name) {
+      sheet.getRange(i + 1, statusIdx + 1).setValue(status);
       return { ok: true };
     }
   }

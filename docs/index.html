@@ -109,6 +109,19 @@
       </div>
 
       <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a7 7 0 017-7h0a7 7 0 017 7v1"/><path d="M19 8v6M22 11h-6"/></svg>
+          <h2>가족 구성원</h2>
+        </div>
+        <div class="sub">새 구성원을 추가하거나, 잠깐 안 낼 사람은 휴면 처리하세요</div>
+        <label>이름</label><input type="text" id="member-name" placeholder="예: 김민준">
+        <label>월 목표금액(원, 선택)</label><input type="text" inputmode="numeric" class="money" id="member-target" placeholder="나중에 정해도 돼요">
+        <button class="btn ghost" onclick="doAddMember()" type="button">+ 구성원 추가</button>
+        <div class="msg" id="member-msg"></div>
+        <div class="list" id="member-list" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="card">
         <div class="card-title"><h2>초기 잔액 설정</h2></div>
         <div class="sub">이 앱을 쓰기 시작하기 전, 통장에 이미 있던 금액</div>
         <div class="inline-row">
