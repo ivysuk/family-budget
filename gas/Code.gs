@@ -1,28 +1,55 @@
 /**
- * 가족 공동통장 관리 웹앱 (Apps Script, 구글시트 바인딩)
- * 시트 탭: 가족구성원 / 월별납부 / 지출청구 / 렌탈료(정기지출) / 거래원장 / 잔액대사
+ * 가족 공동통장 관리 - 백엔드 (Apps Script를 JSON API로만 사용)
+ * 화면(HTML)은 이제 여기서 안 만들고 GitHub Pages(docs/index.html)에서 fetch()로 이 API를 호출한다.
+ * 이유: Apps Script의 HtmlService(google.script.run) 방식은 URL이 못생기고 로딩 화면이 튀는 등 불편해서,
+ * 화면 호스팅과 데이터 백엔드를 분리했다. 둘 다 완전 무료로 유지 가능.
  *
- * 흐름:
- *  - 수입: 가족 구성원이 매달 자기 형편에 맞는 금액을 "월별납부"에 기록 -> 거래원장에 자동 분개
- *  - 지출: 가족 구성원이 먼저 쓰고 "지출청구"에 청구 -> 보스가 이체 후 "이체완료" 처리 -> 거래원장에 자동 분개
- *  - 거래원장은 모든 입출금의 차변/대변 쌍을 쌓는 단일 소스 (복식부기)
- *  - 잔액대사: 거래원장 기준 계산된 잔액 vs 실제 통장 잔액(수동 입력)을 대조
+ * API 호출 규약: 모든 요청(조회/등록/수정 전부)을 GET 쿼리 파라미터로 받는다.
+ * (POST+JSON을 쓰면 브라우저가 CORS preflight를 보내는데 Apps Script가 이를 제대로 처리하지 못해
+ *  외부 도메인에서 호출이 막히는 경우가 많다. GET은 이 문제가 없어서 안정적으로 동작한다.)
+ * 예: https://script.google.com/macros/s/xxx/exec?action=dashboard&ym=2026-07&pass=1234
+ *
+ * 시트 탭: 가족구성원 / 월별납부 / 지출청구 / 렌탈료(정기지출) / 거래원장 / 잔액대사
+ *          + 자동 생성: 설정 / 지출항목
  */
 
-function doGet(e) {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('가족 공동통장 관리')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+function doGet(e) { return handleApi(e); }
+function doPost(e) { return handleApi(e); }
+
+function handleApi(e) {
+  ensureSheetsExist();
+  const p = (e && e.parameter) || {};
+  try {
+    if (!checkPasscode(p.pass)) {
+      return jsonOut({ error: 'unauthorized', message: '비밀번호가 올바르지 않습니다.' });
+    }
+    let result;
+    switch (p.action) {
+      case 'dashboard': result = getDashboard(p.ym); break;
+      case 'recordPayment': result = recordPayment(p.ym, p.name, p.amount); break;
+      case 'submitClaim': result = submitExpenseClaim(p.claimant, p.category, p.amount, p.memo); break;
+      case 'markReimbursed': result = markReimbursed(p.claimId); break;
+      case 'registerRecurring': result = registerRecurring(p.name, p.amount, p.cycle); break;
+      case 'addCategory': result = addCategory(p.name); break;
+      case 'setTarget': result = setMemberTarget(p.name, p.amount); break;
+      case 'setInitialBalance': result = setInitialBalance(p.amount); break;
+      case 'reconcile': result = recordActualBalance(p.ym, p.amount); break;
+      case 'categoryBreakdown': result = getCategoryBreakdown(p.ym); break;
+      case 'availableMonths': result = getAvailableMonths(); break;
+      case 'monthSummary': result = getMonthSummary(p.ym); break;
+      default: result = { error: 'unknown action: ' + p.action };
+    }
+    return jsonOut(result);
+  } catch (err) {
+    return jsonOut({ error: err.message });
+  }
 }
 
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-function getSS() {
-  return SpreadsheetApp.getActiveSpreadsheet();
-}
+function getSS() { return SpreadsheetApp.getActiveSpreadsheet(); }
 
 function getSheet(name) {
   const sheet = getSS().getSheetByName(name);
@@ -31,14 +58,134 @@ function getSheet(name) {
 }
 
 // -------------------------------------------------------------------------
-// 가족 구성원
+// 자가치유: 이전 버전 시트에 없던 탭/컬럼을 처음 실행 시 자동으로 만들어준다
+// -------------------------------------------------------------------------
+
+function ensureSheetsExist() {
+  const ss = getSS();
+
+  if (!ss.getSheetByName('설정')) {
+    const s = ss.insertSheet('설정');
+    s.appendRow(['키', '값']);
+    s.appendRow(['초기잔액', 0]);
+    s.appendRow(['비밀번호', '']); // 비워두면 비밀번호 없이 누구나 접근 가능
+  }
+
+  if (!ss.getSheetByName('지출항목')) {
+    const s = ss.insertSheet('지출항목');
+    s.appendRow(['항목명']);
+    ['공과금', '월세', '생활비', '기타'].forEach(c => s.appendRow([c]));
+  }
+
+  const fam = getSheet('가족구성원');
+  const lastCol = Math.max(fam.getLastColumn(), 1);
+  const headers = fam.getRange(1, 1, 1, lastCol).getValues()[0];
+  if (headers.indexOf('월목표금액') === -1) {
+    fam.getRange(1, lastCol + 1).setValue('월목표금액');
+  }
+}
+
+// -------------------------------------------------------------------------
+// 비밀번호 (간단한 가족 공용 암호 - 정식 계정/로그인 아님)
+// -------------------------------------------------------------------------
+
+function checkPasscode(pass) {
+  const data = getSheet('설정').getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === '비밀번호') {
+      const set = String(data[i][1] || '');
+      return set === '' || set === String(pass || '');
+    }
+  }
+  return true;
+}
+
+// -------------------------------------------------------------------------
+// 연월 문자열 처리 (구글시트가 "2026-07" 같은 문자열을 날짜로 자동 변환해버리는
+// 문제가 있어서, 쓸 때는 텍스트 서식을 강제하고 읽을 때는 날짜든 문자열이든
+// 항상 "yyyy-MM" 문자열로 통일해서 비교한다)
+// -------------------------------------------------------------------------
+
+function ymString(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM');
+  }
+  return String(val || '');
+}
+
+// -------------------------------------------------------------------------
+// 가족 구성원 (+ 월 목표금액)
 // -------------------------------------------------------------------------
 
 function getFamilyMembers() {
-  const data = getSheet('가족구성원').getDataRange().getValues();
+  const sheet = getSheet('가족구성원');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const targetIdx = headers.indexOf('월목표금액');
   return data.slice(1)
     .filter(row => row[0])
-    .map(row => ({ name: row[0], contact: row[1] || '' }));
+    .map(row => ({
+      name: row[0],
+      contact: row[1] || '',
+      target: targetIdx >= 0 ? (Number(row[targetIdx]) || 0) : 0,
+    }));
+}
+
+function setMemberTarget(name, amount) {
+  const sheet = getSheet('가족구성원');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const targetIdx = headers.indexOf('월목표금액');
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === name) {
+      sheet.getRange(i + 1, targetIdx + 1).setValue(Number(amount));
+      return { ok: true };
+    }
+  }
+  return { ok: false, error: '구성원을 찾을 수 없음: ' + name };
+}
+
+// -------------------------------------------------------------------------
+// 초기잔액 / 설정
+// -------------------------------------------------------------------------
+
+function getInitialBalance() {
+  const data = getSheet('설정').getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === '초기잔액') return Number(data[i][1]) || 0;
+  }
+  return 0;
+}
+
+function setInitialBalance(amount) {
+  const sheet = getSheet('설정');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === '초기잔액') {
+      sheet.getRange(i + 1, 2).setValue(Number(amount));
+      return { ok: true };
+    }
+  }
+  sheet.appendRow(['초기잔액', Number(amount)]);
+  return { ok: true };
+}
+
+// -------------------------------------------------------------------------
+// 지출 항목 (사용자가 추가 가능)
+// -------------------------------------------------------------------------
+
+function getCategories() {
+  const data = getSheet('지출항목').getDataRange().getValues();
+  return data.slice(1).map(row => row[0]).filter(Boolean);
+}
+
+function addCategory(name) {
+  if (!name) throw new Error('항목명이 필요합니다.');
+  const existing = getCategories();
+  if (existing.indexOf(name) === -1) {
+    getSheet('지출항목').appendRow([name]);
+  }
+  return { ok: true };
 }
 
 // -------------------------------------------------------------------------
@@ -49,16 +196,18 @@ function recordPayment(yearMonth, name, amount) {
   if (!yearMonth || !name || !amount) throw new Error('연월/이름/금액은 필수입니다.');
   const sheet = getSheet('월별납부');
   const today = new Date();
-  sheet.appendRow([yearMonth, name, Number(amount), today, '완료']);
-  postLedger(today, '공동통장', name + ' 납부금', Number(amount), name, yearMonth + ' 생활비 납부', '월별납부', sheet.getLastRow());
+  const rowNum = sheet.getLastRow() + 1;
+  sheet.getRange(rowNum, 1).setNumberFormat('@').setValue(String(yearMonth));
+  sheet.getRange(rowNum, 2, 1, 4).setValues([[name, Number(amount), today, '완료']]);
+  postLedger(today, '공동통장', name + ' 납부금', Number(amount), name, yearMonth + ' 생활비 납부', '월별납부', rowNum);
   return { ok: true };
 }
 
 function getMonthlyPayments(yearMonth) {
   const data = getSheet('월별납부').getDataRange().getValues();
   return data.slice(1)
-    .filter(row => row[0] === yearMonth)
-    .map(row => ({ yearMonth: row[0], name: row[1], amount: row[2], date: row[3], status: row[4] }));
+    .filter(row => row[0] && ymString(row[0]) === yearMonth)
+    .map(row => ({ yearMonth: ymString(row[0]), name: row[1], amount: row[2], date: row[3], status: row[4] }));
 }
 
 // -------------------------------------------------------------------------
@@ -80,7 +229,9 @@ function getExpenseClaims(status) {
     .filter(row => row[0] && (!status || row[6] === status))
     .map(row => ({
       claimId: row[0], date: row[1], claimant: row[2], category: row[3],
-      amount: row[4], memo: row[5], status: row[6], transferDate: row[7],
+      amount: row[4], memo: String(row[5] || '').replace(/^\[정기:[^\]]+\]\s*/, ''),
+      status: row[6], transferDate: row[7],
+      isRecurring: /^\[정기:/.test(String(row[5] || '')),
     }));
 }
 
@@ -101,12 +252,12 @@ function markReimbursed(claimId) {
 }
 
 // -------------------------------------------------------------------------
-// 렌탈료(정기지출) 등록
+// 렌탈료(정기지출) 등록 + 매달 자동으로 지출청구에 반영
 // -------------------------------------------------------------------------
 
-function registerRecurring(itemName, amount, cycle, nextDate) {
+function registerRecurring(itemName, amount, cycle) {
   if (!itemName || !amount) throw new Error('항목명/금액은 필수입니다.');
-  getSheet('렌탈료(정기지출)').appendRow([itemName, Number(amount), cycle || '매월', nextDate || '']);
+  getSheet('렌탈료(정기지출)').appendRow([itemName, Number(amount), cycle || '매월', '']);
   return { ok: true };
 }
 
@@ -115,6 +266,22 @@ function getRecurringItems() {
   return data.slice(1)
     .filter(row => row[0])
     .map(row => ({ name: row[0], amount: row[1], cycle: row[2], nextDate: row[3] }));
+}
+
+function ensureRecurringClaimsForMonth(yearMonth) {
+  const recurring = getRecurringItems();
+  if (!recurring.length) return;
+  const sheet = getSheet('지출청구');
+  const rows = sheet.getDataRange().getValues().slice(1);
+  recurring.forEach(item => {
+    const tag = '[정기:' + item.name + ':' + yearMonth + ']';
+    const already = rows.some(row => String(row[5] || '').indexOf(tag) !== -1);
+    if (!already) {
+      const today = new Date();
+      const claimId = 'R' + today.getTime() + Math.floor(Math.random() * 1000);
+      sheet.appendRow([claimId, today, '정기지출', '렌탈료', item.amount, tag + ' ' + item.name, '청구중', '']);
+    }
+  });
 }
 
 // -------------------------------------------------------------------------
@@ -136,12 +303,12 @@ function getLedger() {
 }
 
 // -------------------------------------------------------------------------
-// 잔액대사: 거래원장 기준 계산된 잔액 vs 실제 통장 잔액(수동입력)
+// 잔액대사
 // -------------------------------------------------------------------------
 
 function computeSystemBalance() {
   const ledger = getLedger();
-  let balance = 0;
+  let balance = getInitialBalance();
   ledger.forEach(entry => {
     if (entry.debit === '공동통장') balance += Number(entry.amount);
     if (entry.credit === '공동통장') balance -= Number(entry.amount);
@@ -157,15 +324,61 @@ function recordActualBalance(yearMonth, actualBalance) {
 }
 
 // -------------------------------------------------------------------------
-// 대시보드 요약 (웹앱 첫 화면에서 한 번에 불러오는 용도)
+// 가계부다운 부가기능: 카테고리별 지출 통계, 지난달 이력, 월 요약
+// -------------------------------------------------------------------------
+
+function getCategoryBreakdown(yearMonth) {
+  const data = getSheet('지출청구').getDataRange().getValues();
+  const totals = {};
+  data.slice(1).forEach(row => {
+    if (!row[0]) return;
+    const date = row[1] instanceof Date
+      ? Utilities.formatDate(row[1], Session.getScriptTimeZone(), 'yyyy-MM')
+      : ymString(row[1]);
+    if (date !== yearMonth) return;
+    totals[row[3]] = (totals[row[3]] || 0) + Number(row[4]);
+  });
+  return Object.keys(totals)
+    .map(k => ({ category: k, total: totals[k] }))
+    .sort((a, b) => b.total - a.total);
+}
+
+function getAvailableMonths() {
+  const months = new Set();
+  getSheet('월별납부').getDataRange().getValues().slice(1).forEach(row => {
+    if (row[0]) months.add(ymString(row[0]));
+  });
+  getSheet('지출청구').getDataRange().getValues().slice(1).forEach(row => {
+    if (row[1] instanceof Date) {
+      months.add(Utilities.formatDate(row[1], Session.getScriptTimeZone(), 'yyyy-MM'));
+    }
+  });
+  months.add(ymString(new Date()));
+  return Array.from(months).sort().reverse();
+}
+
+function getMonthSummary(yearMonth) {
+  const payments = getMonthlyPayments(yearMonth);
+  const totalPaid = payments.reduce((s, p) => s + Number(p.amount), 0);
+  const breakdown = getCategoryBreakdown(yearMonth);
+  const totalSpent = breakdown.reduce((s, b) => s + b.total, 0);
+  return { yearMonth, totalPaid, totalSpent, breakdown };
+}
+
+// -------------------------------------------------------------------------
+// 대시보드 요약
 // -------------------------------------------------------------------------
 
 function getDashboard(yearMonth) {
+  ensureRecurringClaimsForMonth(yearMonth);
   return {
     members: getFamilyMembers(),
     payments: getMonthlyPayments(yearMonth),
     claims: getExpenseClaims(null),
     recurring: getRecurringItems(),
+    categories: getCategories(),
     systemBalance: computeSystemBalance(),
+    initialBalance: getInitialBalance(),
+    categoryBreakdown: getCategoryBreakdown(yearMonth),
   };
 }
