@@ -176,6 +176,21 @@
       <span>설정</span><div class="tab-dot"></div>
     </button>
   </nav>
+
+  <div class="modal-overlay hidden" id="goal-modal" onclick="if(event.target===this) closeGoalModal()">
+    <div class="modal-card">
+      <h3 id="goal-modal-name">목표 설정</h3>
+      <div class="modal-row" id="goal-modal-carry" style="display:none;">
+        <span class="k">이월된 미납액</span><span class="v bad" id="goal-modal-carry-amt"></span>
+      </div>
+      <label>월 목표금액(원)</label>
+      <input type="text" inputmode="numeric" class="money" id="goal-modal-input" placeholder="예: 500,000">
+      <div class="modal-actions">
+        <button class="btn ghost" type="button" onclick="closeGoalModal()">닫기</button>
+        <button class="btn" type="button" onclick="doSetTargetModal()">저장</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="app.js"></script>

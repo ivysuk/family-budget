@@ -247,10 +247,7 @@ function renderRings(data) {
       : '';
     const controls = dormant
       ? `<div class="ring-dormant-pill">휴면중</div>`
-      : `<div class="ring-edit">
-        <input type="text" inputmode="numeric" class="money" placeholder="목표" id="target-${m.name}">
-        <button onclick="doSetTarget('${m.name}')">저장</button>
-      </div>`;
+      : `<button class="ring-goal-btn" type="button" onclick="openGoalModal('${m.name}')">목표 설정</button>`;
     return `<div class="ring-item${dormant ? ' dormant' : ''}">
       <div class="ring-wrap">
         <svg width="${size}" height="${size}">
@@ -344,10 +341,37 @@ function doSetInitialBalance() {
     .catch(e => setMsg('initial-balance-msg', '오류: ' + e.message, false));
 }
 
-function doSetTarget(name) {
-  const raw = rawNumber(document.getElementById('target-' + name));
+let goalModalName = null;
+
+function openGoalModal(name) {
+  const m = (lastData && lastData.members || []).find(x => x.name === name);
+  if (!m) return;
+  goalModalName = name;
+  document.getElementById('goal-modal-name').textContent = name + ' 목표 설정';
+  document.getElementById('goal-modal-input').value = m.target ? fmt(m.target) : '';
+  const carryBox = document.getElementById('goal-modal-carry');
+  if (m.carryover > 0) {
+    carryBox.style.display = '';
+    document.getElementById('goal-modal-carry-amt').textContent = fmt(m.carryover) + '원';
+  } else {
+    carryBox.style.display = 'none';
+  }
+  document.getElementById('goal-modal').classList.remove('hidden');
+}
+
+function closeGoalModal() {
+  document.getElementById('goal-modal').classList.add('hidden');
+  goalModalName = null;
+}
+
+function doSetTargetModal() {
+  if (!goalModalName) return;
+  const raw = rawNumber(document.getElementById('goal-modal-input'));
   if (!raw) return;
-  api('setTarget', { name: name, amount: raw }).then(loadDashboard);
+  api('setTarget', { name: goalModalName, amount: raw }).then(() => {
+    closeGoalModal();
+    loadDashboard();
+  });
 }
 
 function doAddMember() {
