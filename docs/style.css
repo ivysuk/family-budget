@@ -1,24 +1,25 @@
 :root {
-  --ink: #1B2723;
-  --ink-soft: #5C6B64;
-  --ink-faint: #93A39B;
-  --paper: #EEF1EA;
+  --ink: #2B241D;
+  --ink-soft: #736A5D;
+  --ink-faint: #A99E8D;
+  --paper: #F7F3EA;
   --card: #FFFFFF;
-  --line: #E1E6DD;
-  --accent: #24473D;
-  --accent-2: #1B362E;
-  --accent-soft: #DEE9E2;
+  --line: #EAE2D2;
+  --accent: #DD6A4B;
+  --accent-2: #C4543A;
+  --accent-soft: #FBE7DD;
   --gold: #B8862E;
   --gold-soft: #F3E7CE;
-  --good: #2E8B57;
-  --good-soft: #E3F2E8;
-  --warn: #B8792A;
+  --good: #3F8F5F;
+  --good-soft: #E4F2E7;
+  --warn: #C08228;
   --warn-soft: #FBEEDD;
-  --bad: #B0432E;
+  --bad: #C24A38;
   --bad-soft: #FBE7E2;
   --radius-lg: 20px;
   --radius: 14px;
-  --shadow: 0 1px 2px rgba(27,39,35,.04), 0 8px 24px -12px rgba(27,39,35,.18);
+  --shadow: 0 1px 2px rgba(43,36,29,.04), 0 8px 24px -12px rgba(43,36,29,.16);
+  --skeleton: linear-gradient(100deg, #F0EAE0 30%, #F8F4EC 50%, #F0EAE0 70%);
 }
 
 * { box-sizing: border-box; }
@@ -41,10 +42,11 @@ input, select { font-family: inherit; }
 
 .hidden { display: none !important; }
 
-/* ---------- 잠금/오류 화면 ---------- */
-.locked-screen { max-width: 320px; margin: 96px auto; padding: 32px 28px; background: var(--card); border-radius: var(--radius-lg); box-shadow: var(--shadow); text-align: center; }
-.locked-screen h1 { font-size: 19px; margin-bottom: 8px; }
-.locked-screen p { font-size: 13px; color: var(--ink-soft); line-height: 1.6; }
+/* ---------- 상태 배너(연결 오류 등, 필요할 때만 표시) ---------- */
+.status-banner {
+  flex: 0 0 auto; margin: 0 16px 10px; padding: 10px 14px; border-radius: 10px;
+  background: var(--bad-soft); color: var(--bad); font-size: 12.5px; font-weight: 600; text-align: center;
+}
 
 /* ---------- 앱 셸 ---------- */
 #app { display: flex; flex-direction: column; height: 100dvh; max-width: 480px; margin: 0 auto; background: var(--paper); }
@@ -96,22 +98,22 @@ main { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padd
   background: linear-gradient(160deg, var(--accent) 0%, var(--accent-2) 100%);
   border-radius: var(--radius-lg);
   padding: 24px 22px;
-  color: #F4F1E8;
+  color: #FBF0E9;
   box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
 }
 .hero::after {
   content: ''; position: absolute; inset: 0;
-  background: radial-gradient(circle at 85% -10%, rgba(184,134,46,.35), transparent 55%);
+  background: radial-gradient(circle at 85% -10%, rgba(255,214,168,.35), transparent 55%);
   pointer-events: none;
 }
-.hero .eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #A9C4B7; margin-bottom: 6px; }
+.hero .eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #F3C7B3; margin-bottom: 6px; }
 .hero .balance { font-variant-numeric: tabular-nums; font-size: 34px; font-weight: 700; letter-spacing: -.01em; }
-.hero .balance .unit { font-size: 15px; font-weight: 500; color: #E3D3AE; margin-left: 3px; }
-.hero .sub-line { display: flex; gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(244,241,232,.25); }
-.hero .sub-item .k { font-size: 11px; color: #A9C4B7; margin-bottom: 2px; }
-.hero .sub-item .v { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; color: #F4F1E8; }
+.hero .balance .unit { font-size: 15px; font-weight: 500; color: #F8DEC9; margin-left: 3px; }
+.hero .sub-line { display: flex; gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed rgba(251,240,233,.25); }
+.hero .sub-item .k { font-size: 11px; color: #F3C7B3; margin-bottom: 2px; }
+.hero .sub-item .v { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 600; color: #FBF0E9; }
 
 /* ---------- 카드 ---------- */
 .card { background: var(--card); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
@@ -131,6 +133,7 @@ main { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padd
 .ring-edit { display: flex; gap: 4px; width: 100%; }
 .ring-edit input { width: 100%; padding: 4px 5px; font-size: 10px; border: 1px solid var(--line); border-radius: 5px; text-align: center; }
 .ring-edit button { flex: none; padding: 4px 6px; font-size: 10px; background: var(--accent-soft); color: var(--accent); border-radius: 5px; font-weight: 600; }
+.ring-carry { font-size: 9px; font-weight: 700; color: var(--bad); text-align: center; line-height: 1.3; }
 
 /* ---------- 폼 ---------- */
 label { display: block; font-size: 12px; font-weight: 500; color: var(--ink-soft); margin: 12px 0 5px; }
@@ -204,7 +207,25 @@ input.money { font-variant-numeric: tabular-nums; text-align: right; }
 
 .section-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); margin: 4px 2px 0; }
 
+/* ---------- 스켈레톤(첫 로딩 중 표시) ---------- */
+.skel { background: var(--skeleton); background-size: 200% 100%; animation: shimmer 1.3s ease-in-out infinite; border-radius: 8px; }
+@keyframes shimmer { 0% { background-position: 180% 0; } 100% { background-position: -20% 0; } }
+.hero.skel-hero { color: transparent; }
+.hero.skel-hero::after { display: none; }
+.hero.skel-hero .balance,
+.hero.skel-hero .sub-item .v { background: rgba(255,255,255,.28); border-radius: 6px; animation: shimmer 1.3s ease-in-out infinite; }
+.ring-grid.skel-rings { gap: 14px; }
+.skel-ring { flex: 0 0 auto; width: 76px; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.skel-ring .skel-circle { width: 68px; height: 68px; border-radius: 50%; }
+.skel-ring .skel-line { width: 80%; height: 10px; }
+.skel-row { display: flex; align-items: center; gap: 10px; padding: 11px 2px; }
+.skel-row .skel-icon { width: 34px; height: 34px; border-radius: 10px; flex: none; }
+.skel-row .skel-lines { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.skel-row .skel-lines div:first-child { width: 55%; height: 11px; }
+.skel-row .skel-lines div:last-child { width: 35%; height: 9px; }
+
 @media (prefers-reduced-motion: reduce) {
   .tab-view { animation: none; }
   .icon-btn.spinning svg { animation: none; }
+  .skel { animation: none; }
 }

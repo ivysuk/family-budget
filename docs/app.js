@@ -53,31 +53,61 @@ function switchTab(name) {
 // ---------------------------------------------------------------------
 // 부팅 / 인증
 // ---------------------------------------------------------------------
+// 화면은 항상 즉시 보여준다(스켈레톤으로). 이전에 불러온 데이터가 캐시에 있으면
+// 그걸 먼저 그대로 그려서 체감 로딩을 없애고, 그 사이에 구글 서버에서 최신 데이터를
+// 조용히 받아와서 덮어쓴다 (stale-while-revalidate).
 
-function boot() {
-  if (API_URL.indexOf('PUT_YOUR') === 0) {
-    document.getElementById('lock-msg').textContent = 'app.js의 API_URL을 Apps Script 웹앱 URL로 바꿔주세요.';
-    return;
-  }
-  unlockAndLoad();
+function cacheKey(ym) { return 'familyBudgetCache_' + ym; }
+
+function readCache(ym) {
+  try { return JSON.parse(localStorage.getItem(cacheKey(ym))); } catch (e) { return null; }
 }
 
-function unlockAndLoad() {
+function writeCache(ym, data) {
+  try { localStorage.setItem(cacheKey(ym), JSON.stringify(data)); } catch (e) { /* 용량 초과 등은 무시 */ }
+}
+
+function showStatus(text) {
+  const el = document.getElementById('status-banner');
+  if (!text) { el.classList.add('hidden'); el.textContent = ''; return; }
+  el.textContent = text;
+  el.classList.remove('hidden');
+}
+
+function boot() {
+  document.getElementById('ym-label').textContent = YM + ' 기준';
+  renderSkeleton();
+
+  if (API_URL.indexOf('PUT_YOUR') === 0) {
+    showStatus('app.js의 API_URL을 Apps Script 웹앱 URL로 바꿔주세요.');
+    return;
+  }
+
+  const cached = readCache(YM);
+  if (cached) {
+    renderDashboard(cached);
+    loadMonthPicker();
+    unlockAndLoad(true); // 화면은 이미 떠 있으니 조용히 최신화만
+  } else {
+    unlockAndLoad(false);
+  }
+}
+
+function unlockAndLoad(silent) {
   api('dashboard', { ym: YM }).then(data => {
-    document.getElementById('lock-screen').classList.add('hidden');
-    document.getElementById('app').classList.remove('hidden');
-    document.getElementById('ym-label').textContent = YM + ' 기준';
+    showStatus(null);
     renderDashboard(data);
+    writeCache(YM, data);
     loadMonthPicker();
   }).catch(err => {
     if (err && err.unauthorized) {
       const input = prompt('비밀번호를 입력하세요');
-      if (input === null) { document.getElementById('lock-msg').innerHTML = '비밀번호가 필요합니다.'; return; }
+      if (input === null) { if (!silent) showStatus('비밀번호가 필요합니다.'); return; }
       PASS = input;
       localStorage.setItem('familyBudgetPass', PASS);
-      unlockAndLoad();
-    } else {
-      document.getElementById('lock-msg').innerHTML = '연결 오류가 발생했어요.<br><span style="font-size:11px">' + err.message + '</span>';
+      unlockAndLoad(silent);
+    } else if (!silent) {
+      showStatus('연결 오류가 발생했어요: ' + err.message);
     }
   });
 }
@@ -93,6 +123,31 @@ function loadDashboard(showSpin) {
     renderDashboard(data);
     btn.classList.remove('spinning');
   }).catch(e => { btn.classList.remove('spinning'); alert('불러오기 오류: ' + e.message); });
+}
+
+function renderSkeleton() {
+  const balanceEl = document.getElementById('system-balance');
+  balanceEl.closest('.hero').classList.add('skel-hero');
+  balanceEl.textContent = '000,000';
+
+  const ringGrid = document.getElementById('ring-grid');
+  ringGrid.classList.add('skel-rings');
+  ringGrid.innerHTML = Array(3).fill(0).map(() => `
+    <div class="skel-ring">
+      <div class="skel skel-circle"></div>
+      <div class="skel skel-line"></div>
+    </div>`).join('');
+
+  const rowSkeleton = (n) => Array(n).fill(0).map(() => `
+    <div class="skel-row">
+      <div class="skel skel-icon"></div>
+      <div class="skel-lines"><div class="skel"></div><div class="skel"></div></div>
+    </div>`).join('');
+
+  document.getElementById('breakdown-list').innerHTML = rowSkeleton(2);
+  document.getElementById('payment-list').innerHTML = rowSkeleton(3);
+  document.getElementById('claim-list').innerHTML = rowSkeleton(3);
+  document.getElementById('recurring-list').innerHTML = rowSkeleton(2);
 }
 
 function loadMonthPicker() {
@@ -119,6 +174,9 @@ function animateNumber(el, to) {
 function renderDashboard(data) {
   lastData = data;
 
+  document.getElementById('system-balance').closest('.hero').classList.remove('skel-hero');
+  document.getElementById('ring-grid').classList.remove('skel-rings');
+
   ['pay-name', 'claim-name'].forEach(id => {
     const sel = document.getElementById(id);
     const prev = sel.value;
@@ -143,7 +201,7 @@ function renderDashboard(data) {
 }
 
 function renderHeroStats(data) {
-  const totalTarget = data.members.reduce((s, m) => s + (m.target || 0), 0);
+  const totalTarget = data.members.reduce((s, m) => s + (m.effectiveTarget != null ? m.effectiveTarget : (m.target || 0)), 0);
   const totalPaid = data.payments.reduce((s, p) => s + Number(p.amount), 0);
   const pct = totalTarget > 0 ? Math.min(100, Math.round(totalPaid / totalTarget * 100)) : 0;
   document.getElementById('hero-goal-progress').textContent = totalTarget > 0 ? pct + '%' : '목표 미설정';
@@ -173,11 +231,16 @@ function renderRings(data) {
   list.innerHTML = data.members.map(m => {
     const paid = paidByName[m.name] || 0;
     const target = m.target || 0;
-    const pct = target > 0 ? Math.min(100, Math.round(paid / target * 100)) : 0;
-    const complete = target > 0 && paid >= target;
+    const carryover = m.carryover || 0;
+    const effectiveTarget = m.effectiveTarget != null ? m.effectiveTarget : target;
+    const pct = effectiveTarget > 0 ? Math.min(100, Math.round(paid / effectiveTarget * 100)) : 0;
+    const complete = effectiveTarget > 0 && paid >= effectiveTarget;
     const size = 68, stroke = 6, r = (size - stroke) / 2, c = 2 * Math.PI * r;
     const offset = c * (1 - pct / 100);
-    const color = complete ? 'var(--good)' : 'var(--gold)';
+    const color = complete ? 'var(--good)' : 'var(--accent)';
+    const carryoverNote = carryover > 0
+      ? `<div class="ring-carry">이월 ${fmt(carryover)}원 포함</div>`
+      : '';
     return `<div class="ring-item">
       <div class="ring-wrap">
         <svg width="${size}" height="${size}">
@@ -188,7 +251,8 @@ function renderRings(data) {
         <div class="ring-label">${pct}%</div>
       </div>
       <div class="ring-name">${m.name}</div>
-      <div class="ring-amt">${fmt(paid)}${target ? ' / ' + fmt(target) : ''}</div>
+      <div class="ring-amt">${fmt(paid)}${effectiveTarget ? ' / ' + fmt(effectiveTarget) : ''}</div>
+      ${carryoverNote}
       <div class="ring-edit">
         <input type="text" inputmode="numeric" class="money" placeholder="목표 수정" id="target-${m.name}">
         <button onclick="doSetTarget('${m.name}')">저장</button>

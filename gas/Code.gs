@@ -366,13 +366,43 @@ function getMonthSummary(yearMonth) {
 }
 
 // -------------------------------------------------------------------------
+// 이월금액: 과거 달에 개인 목표금액을 못 채운 부족분을 다음 달로 누적 이월한다
+// (예: 7월에 목표 50만원 중 30만원만 냈다면, 부족분 20만원이 8월로 넘어가서
+//  8월 목표에 더해진다 -> "이월분 먼저 내주세요" 형태로 보여줌)
+// -------------------------------------------------------------------------
+
+function getMemberCarryover(name, uptoYearMonth, target) {
+  if (!target) return 0;
+  const pastMonths = getAvailableMonths().filter(m => m < uptoYearMonth);
+  if (!pastMonths.length) return 0;
+
+  const paidByMonth = {};
+  getSheet('월별납부').getDataRange().getValues().slice(1).forEach(row => {
+    if (!row[0] || row[1] !== name) return;
+    const ym = ymString(row[0]);
+    paidByMonth[ym] = (paidByMonth[ym] || 0) + Number(row[2]);
+  });
+
+  let carry = 0;
+  pastMonths.forEach(ym => {
+    const paid = paidByMonth[ym] || 0;
+    carry += Math.max(0, target - paid);
+  });
+  return carry;
+}
+
+// -------------------------------------------------------------------------
 // 대시보드 요약
 // -------------------------------------------------------------------------
 
 function getDashboard(yearMonth) {
   ensureRecurringClaimsForMonth(yearMonth);
+  const members = getFamilyMembers().map(m => {
+    const carryover = getMemberCarryover(m.name, yearMonth, m.target);
+    return Object.assign({}, m, { carryover: carryover, effectiveTarget: m.target + carryover });
+  });
   return {
-    members: getFamilyMembers(),
+    members: members,
     payments: getMonthlyPayments(yearMonth),
     claims: getExpenseClaims(null),
     recurring: getRecurringItems(),

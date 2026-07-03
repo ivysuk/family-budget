@@ -11,12 +11,7 @@
 </head>
 <body>
 
-<div class="locked-screen" id="lock-screen">
-  <h1>가족 공동통장</h1>
-  <p id="lock-msg">불러오는 중이에요…<br>구글 서버 응답이라 5~10초 정도 걸릴 수 있어요.</p>
-</div>
-
-<div id="app" class="hidden">
+<div id="app">
   <header class="topbar">
     <div class="topbar-brand">
       <h1>가족 공동통장</h1>
@@ -26,6 +21,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
     </button>
   </header>
+  <div class="status-banner hidden" id="status-banner"></div>
 
   <main id="main">
     <!-- 홈 -->
