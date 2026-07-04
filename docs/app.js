@@ -438,6 +438,34 @@ function doRecurring() {
   }).catch(e => setMsg('rec-msg', '오류: ' + e.message, false));
 }
 
+function copyAccountNumber(btn) {
+  const number = '3333340661190';
+  const showCopied = () => {
+    const original = btn.textContent;
+    btn.textContent = '복사됨';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = original; btn.classList.remove('copied'); }, 1500);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(number).then(showCopied).catch(() => fallbackCopyText(number, showCopied));
+  } else {
+    fallbackCopyText(number, showCopied);
+  }
+}
+
+function fallbackCopyText(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) { /* 무시 */ }
+  document.body.removeChild(ta);
+  cb();
+}
+
 function doReconcile() {
   const actual = rawNumber(document.getElementById('actual-balance'));
   const box = document.getElementById('reconcile-msg');
