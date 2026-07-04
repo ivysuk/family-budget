@@ -54,7 +54,7 @@ input, select { font-family: inherit; }
 .topbar {
   flex: 0 0 auto;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 18px;
+  padding: calc(16px + env(safe-area-inset-top)) 18px 16px;
   background: var(--paper);
 }
 .topbar-brand { display: flex; align-items: baseline; gap: 8px; }
