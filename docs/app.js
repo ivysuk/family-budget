@@ -1,5 +1,5 @@
 // ---- 아래 URL은 본인의 Apps Script 웹앱 배포 URL로 이미 맞춰져 있어야 합니다 ----
-const API_URL = 'https://script.google.com/macros/s/AKfycbyU0pCYYAOeraIVX4toNZYANq3oohIT3aD3Q6vs-ep0UgcTWTEI7Z086bo-hvGjQ-r7/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxo4mXj1q6yGGQswG1wHbnRV3sh7AtPTdC4vV__GevRcInJ5yCIX3h03U7DgqUcEU3Y/exec';
 
 let PASS = localStorage.getItem('familyBudgetPass') || '';
 let YM = currentYearMonth();
