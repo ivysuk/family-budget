@@ -217,8 +217,11 @@ function renderPendingClaimsBanner(claims) {
   const banner = document.getElementById('pending-claims-banner');
   const pending = (claims || []).filter(c => c.status === '청구중');
   if (!pending.length) { banner.classList.add('hidden'); return; }
+  const needsAmountCount = pending.filter(c => c.needsAmount).length;
   const total = pending.reduce((s, c) => s + Number(c.amount), 0);
-  document.getElementById('pending-claims-summary').textContent = `${pending.length}건 · 총 ${fmt(total)}원`;
+  let summary = `${pending.length}건 · 총 ${fmt(total)}원`;
+  if (needsAmountCount) summary += ` (금액 입력 필요 ${needsAmountCount}건)`;
+  document.getElementById('pending-claims-summary').textContent = summary;
   banner.classList.remove('hidden');
 }
 
@@ -303,8 +306,22 @@ function renderClaimList(claims) {
   const box = document.getElementById('claim-list');
   if (!claims.length) { box.innerHTML = '<div class="empty-state">아직 지출 청구가 없어요.</div>'; return; }
   box.innerHTML = claims.map(c => {
-    const pillClass = c.status === '이체완료' ? 'done' : 'pending';
     const recurringBadge = c.isRecurring ? '<span class="pill recurring">정기</span>' : '';
+    if (c.needsAmount) {
+      return `<div class="list-row needs-amount">
+        <div class="list-icon warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconFor(c.category)}</svg></div>
+        <div class="list-body">
+          <div class="list-title">${c.claimant}${recurringBadge}</div>
+          <div class="list-sub">${c.category}${c.memo ? ' · ' + c.memo : ''}</div>
+          <div class="amount-input-row">
+            <input type="text" inputmode="numeric" class="money" id="amt-input-${c.claimId}" placeholder="이번 달 실제 청구액">
+            <button class="btn small" type="button" onclick="doSetClaimAmount('${c.claimId}')">저장</button>
+          </div>
+        </div>
+        <div class="list-right"><span class="pill pending">금액 입력 필요</span></div>
+      </div>`;
+    }
+    const pillClass = c.status === '이체완료' ? 'done' : 'pending';
     const btn = c.status === '청구중' ? `<button class="btn small" style="margin-top:6px;" onclick="markDone('${c.claimId}')">완료 처리</button>` : '';
     return `<div class="list-row">
       <div class="list-icon gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconFor(c.category)}</svg></div>
@@ -312,6 +329,14 @@ function renderClaimList(claims) {
       <div class="list-right"><div class="list-amt">${fmt(c.amount)}원</div><span class="pill ${pillClass}">${c.status}</span></div>
     </div>`;
   }).join('');
+}
+
+function doSetClaimAmount(claimId) {
+  const input = document.getElementById('amt-input-' + claimId);
+  const amount = rawNumber(input);
+  if (!amount) { alert('금액을 입력해주세요.'); return; }
+  api('setClaimAmount', { claimId: claimId, amount: amount }).then(loadDashboard)
+    .catch(e => alert('오류: ' + e.message));
 }
 
 function renderMemberList(members) {
@@ -331,11 +356,17 @@ function renderMemberList(members) {
 function renderRecurringList(items) {
   const box = document.getElementById('recurring-list');
   if (!items.length) { box.innerHTML = '<div class="empty-state">등록된 정기지출이 없어요.</div>'; return; }
-  box.innerHTML = items.map(r => `<div class="list-row">
+  box.innerHTML = items.map(r => {
+    const variableBadge = r.variable ? '<span class="pill variable">변동</span>' : '';
+    const amountText = r.variable
+      ? (r.amount ? '기본 ' + fmt(r.amount) + '원' : '매달 금액 입력')
+      : fmt(r.amount) + '원';
+    return `<div class="list-row">
     <div class="list-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconFor('렌탈료')}</svg></div>
-    <div class="list-body"><div class="list-title">${r.name}</div><div class="list-sub">${r.cycle}</div></div>
-    <div class="list-right"><div class="list-amt">${fmt(r.amount)}원</div></div>
-  </div>`).join('');
+    <div class="list-body"><div class="list-title">${r.name}${variableBadge}</div><div class="list-sub">${r.cycle}</div></div>
+    <div class="list-right"><div class="list-amt">${amountText}</div></div>
+  </div>`;
+  }).join('');
 }
 
 // ---------------------------------------------------------------------
@@ -435,15 +466,32 @@ function doAddCategory() {
 
 function markDone(claimId) { api('markReimbursed', { claimId: claimId }).then(loadDashboard); }
 
+function toggleRecVariable() {
+  const checked = document.getElementById('rec-variable').checked;
+  const label = document.getElementById('rec-amount-label');
+  const input = document.getElementById('rec-amount');
+  if (checked) {
+    label.textContent = '기본 금액(원, 선택)';
+    input.placeholder = '카드 청구서 보고 매달 입력해도 돼요';
+  } else {
+    label.textContent = '정기 금액(원)';
+    input.placeholder = '예: 200,000';
+  }
+}
+
 function doRecurring() {
   const name = document.getElementById('rec-name').value;
   const amount = rawNumber(document.getElementById('rec-amount'));
   const cycle = document.getElementById('rec-cycle').value;
-  if (!name || !amount) { setMsg('rec-msg', '항목명/금액을 입력해주세요.', false); return; }
-  api('registerRecurring', { name: name, amount: amount, cycle: cycle }).then(() => {
+  const variable = document.getElementById('rec-variable').checked;
+  if (!name) { setMsg('rec-msg', '항목명을 입력해주세요.', false); return; }
+  if (!variable && !amount) { setMsg('rec-msg', '금액을 입력해주세요.', false); return; }
+  api('registerRecurring', { name: name, amount: amount || 0, cycle: cycle, variable: variable }).then(() => {
     setMsg('rec-msg', '등록했습니다.', true);
     document.getElementById('rec-name').value = '';
     document.getElementById('rec-amount').value = '';
+    document.getElementById('rec-variable').checked = false;
+    toggleRecVariable();
     loadDashboard();
   }).catch(e => setMsg('rec-msg', '오류: ' + e.message, false));
 }

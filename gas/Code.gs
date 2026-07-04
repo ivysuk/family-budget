@@ -29,7 +29,8 @@ function handleApi(e) {
       case 'recordPayment': result = recordPayment(p.ym, p.name, p.amount); break;
       case 'submitClaim': result = submitExpenseClaim(p.claimant, p.category, p.amount, p.memo); break;
       case 'markReimbursed': result = markReimbursed(p.claimId); break;
-      case 'registerRecurring': result = registerRecurring(p.name, p.amount, p.cycle); break;
+      case 'registerRecurring': result = registerRecurring(p.name, p.amount, p.cycle, p.variable); break;
+      case 'setClaimAmount': result = setClaimAmount(p.claimId, p.amount); break;
       case 'addCategory': result = addCategory(p.name); break;
       case 'setTarget': result = setMemberTarget(p.name, p.amount); break;
       case 'addMember': result = addMember(p.name, p.target); break;
@@ -87,6 +88,13 @@ function ensureSheetsExist() {
   }
   if (headers.indexOf('상태') === -1) {
     fam.getRange(1, fam.getLastColumn() + 1).setValue('상태');
+  }
+
+  const rec = getSheet('렌탈료(정기지출)');
+  const recLastCol = Math.max(rec.getLastColumn(), 1);
+  const recHeaders = rec.getRange(1, 1, 1, recLastCol).getValues()[0];
+  if (recHeaders.indexOf('변동여부') === -1) {
+    rec.getRange(1, rec.getLastColumn() + 1).setValue('변동여부');
   }
 }
 
@@ -266,12 +274,16 @@ function getExpenseClaims(status) {
   const data = getSheet('지출청구').getDataRange().getValues();
   return data.slice(1)
     .filter(row => row[0] && (!status || row[6] === status))
-    .map(row => ({
-      claimId: row[0], date: row[1], claimant: row[2], category: row[3],
-      amount: row[4], memo: String(row[5] || '').replace(/^\[정기:[^\]]+\]\s*/, ''),
-      status: row[6], transferDate: row[7],
-      isRecurring: /^\[정기:/.test(String(row[5] || '')),
-    }));
+    .map(row => {
+      const rawMemo = String(row[5] || '');
+      return {
+        claimId: row[0], date: row[1], claimant: row[2], category: row[3],
+        amount: row[4], memo: rawMemo.replace(/^\[정기:[^\]]+\]\s*/, ''),
+        status: row[6], transferDate: row[7],
+        isRecurring: /^\[정기:/.test(rawMemo),
+        needsAmount: /:VAR\]/.test(rawMemo) && !Number(row[4]),
+      };
+    });
 }
 
 function markReimbursed(claimId) {
@@ -290,13 +302,28 @@ function markReimbursed(claimId) {
   return { ok: false, error: '청구ID를 찾을 수 없음: ' + claimId };
 }
 
+function setClaimAmount(claimId, amount) {
+  if (!amount) throw new Error('금액을 입력해주세요.');
+  const sheet = getSheet('지출청구');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === claimId) {
+      sheet.getRange(i + 1, 5).setValue(Number(amount));
+      return { ok: true };
+    }
+  }
+  return { ok: false, error: '청구ID를 찾을 수 없음: ' + claimId };
+}
+
 // -------------------------------------------------------------------------
 // 렌탈료(정기지출) 등록 + 매달 자동으로 지출청구에 반영
 // -------------------------------------------------------------------------
 
-function registerRecurring(itemName, amount, cycle) {
-  if (!itemName || !amount) throw new Error('항목명/금액은 필수입니다.');
-  getSheet('렌탈료(정기지출)').appendRow([itemName, Number(amount), cycle || '매월', '']);
+function registerRecurring(itemName, amount, cycle, variable) {
+  if (!itemName) throw new Error('항목명이 필요합니다.');
+  const isVariable = variable === true || variable === 'true' || variable === '1';
+  if (!isVariable && !amount) throw new Error('금액은 필수입니다.');
+  getSheet('렌탈료(정기지출)').appendRow([itemName, Number(amount) || 0, cycle || '매월', '', isVariable ? '변동' : '']);
   return { ok: true };
 }
 
@@ -304,7 +331,7 @@ function getRecurringItems() {
   const data = getSheet('렌탈료(정기지출)').getDataRange().getValues();
   return data.slice(1)
     .filter(row => row[0])
-    .map(row => ({ name: row[0], amount: row[1], cycle: row[2], nextDate: row[3] }));
+    .map(row => ({ name: row[0], amount: row[1], cycle: row[2], nextDate: row[3], variable: row[4] === '변동' }));
 }
 
 function ensureRecurringClaimsForMonth(yearMonth) {
@@ -313,12 +340,13 @@ function ensureRecurringClaimsForMonth(yearMonth) {
   const sheet = getSheet('지출청구');
   const rows = sheet.getDataRange().getValues().slice(1);
   recurring.forEach(item => {
-    const tag = '[정기:' + item.name + ':' + yearMonth + ']';
+    const tag = '[정기:' + item.name + ':' + yearMonth + (item.variable ? ':VAR' : '') + ']';
     const already = rows.some(row => String(row[5] || '').indexOf(tag) !== -1);
     if (!already) {
       const today = new Date();
       const claimId = 'R' + today.getTime() + Math.floor(Math.random() * 1000);
-      sheet.appendRow([claimId, today, '정기지출', '렌탈료', item.amount, tag + ' ' + item.name, '청구중', '']);
+      const amount = item.variable ? 0 : item.amount;
+      sheet.appendRow([claimId, today, '정기지출', '렌탈료', amount, tag + ' ' + item.name, '청구중', '']);
     }
   });
 }

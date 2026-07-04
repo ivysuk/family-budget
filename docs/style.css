@@ -173,6 +173,10 @@ input.money { font-variant-numeric: tabular-nums; text-align: right; }
 .inline-row > div { flex: 1; }
 .inline-row .btn { margin-top: 0; }
 
+.checkbox-row { margin: 10px 0 2px; }
+.checkbox-label { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500; color: var(--ink-soft); cursor: pointer; }
+.checkbox-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
+
 .btn {
   margin-top: 14px; padding: 12px 18px; border-radius: 11px; background: var(--accent);
   color: #fff; font-size: 14.5px; font-weight: 600; width: 100%;
@@ -199,6 +203,7 @@ input.money { font-variant-numeric: tabular-nums; text-align: right; }
 }
 .list-icon svg { width: 16px; height: 16px; }
 .list-icon.gold { background: var(--gold-soft); color: var(--gold); }
+.list-icon.warn { background: var(--warn-soft); color: var(--warn); }
 .list-body { flex: 1; min-width: 0; }
 .list-title { font-size: 13.5px; font-weight: 600; }
 .list-sub { font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -206,10 +211,16 @@ input.money { font-variant-numeric: tabular-nums; text-align: right; }
 .list-amt { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13.5px; }
 .empty-state { text-align: center; padding: 28px 10px; color: var(--ink-faint); font-size: 12.5px; }
 
+.list-row.needs-amount { align-items: flex-start; }
+.amount-input-row { display: flex; gap: 6px; margin-top: 8px; }
+.amount-input-row input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; background: #FBFCFA; }
+.amount-input-row .btn.small { flex: none; }
+
 .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; margin-top: 3px; }
 .pill.done { background: var(--good-soft); color: var(--good); }
 .pill.pending { background: var(--warn-soft); color: var(--warn); }
 .pill.recurring { background: var(--accent-soft); color: var(--accent); margin-left: 4px; margin-top: 0; }
+.pill.variable { background: var(--gold-soft); color: var(--gold); margin-left: 4px; margin-top: 0; }
 
 /* ---------- 막대(카테고리) ---------- */
 .bar-row { margin-bottom: 12px; }

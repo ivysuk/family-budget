@@ -150,9 +150,12 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           <h2>렌탈료 · 정기지출</h2>
         </div>
-        <div class="sub">등록해두면 매달 자동으로 지출 청구 목록에 생겨요</div>
-        <label>항목명</label><input type="text" id="rec-name" placeholder="예: 정수기 렌탈">
-        <label>정기 금액(원)</label><input type="text" inputmode="numeric" class="money" id="rec-amount">
+        <div class="sub">등록해두면 매달 자동으로 지출 청구 목록에 생겨요. 관리비·전기세·대출이자처럼 금액이 매달 바뀌면 변동금액에 체크하세요. 카드 자동청구라 깜빡하기 쉬운 것도 청구 목록에 "금액 입력 필요"로 떠서 잊지 않고 챙길 수 있어요.</div>
+        <label>항목명</label><input type="text" id="rec-name" placeholder="예: 관리비, 전기세, 대출이자">
+        <label id="rec-amount-label">정기 금액(원)</label><input type="text" inputmode="numeric" class="money" id="rec-amount" placeholder="예: 200,000">
+        <div class="checkbox-row">
+          <label class="checkbox-label"><input type="checkbox" id="rec-variable" onchange="toggleRecVariable()"> 매달 금액이 바뀌어요 (변동금액)</label>
+        </div>
         <label>주기</label><select id="rec-cycle"><option>매월</option><option>격월</option><option>분기</option></select>
         <button class="btn" onclick="doRecurring()">등록</button>
         <div class="msg" id="rec-msg"></div>
