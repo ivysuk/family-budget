@@ -197,6 +197,7 @@ function renderDashboard(data) {
   renderRings(data);
   renderBreakdown(data.categoryBreakdown || []);
   renderHeroStats(data);
+  renderPendingClaimsBanner(data.claims);
   renderPaymentList(data.payments);
   renderClaimList(data.claims);
   renderRecurringList(data.recurring);
@@ -210,6 +211,15 @@ function renderHeroStats(data) {
   document.getElementById('hero-goal-progress').textContent = totalTarget > 0 ? pct + '%' : '목표 미설정';
   const totalSpent = (data.categoryBreakdown || []).reduce((s, b) => s + b.total, 0);
   document.getElementById('hero-spent').textContent = fmt(totalSpent) + '원';
+}
+
+function renderPendingClaimsBanner(claims) {
+  const banner = document.getElementById('pending-claims-banner');
+  const pending = (claims || []).filter(c => c.status === '청구중');
+  if (!pending.length) { banner.classList.add('hidden'); return; }
+  const total = pending.reduce((s, c) => s + Number(c.amount), 0);
+  document.getElementById('pending-claims-summary').textContent = `${pending.length}건 · 총 ${fmt(total)}원`;
+  banner.classList.remove('hidden');
 }
 
 const ICONS = {

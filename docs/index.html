@@ -40,6 +40,15 @@
         </div>
       </div>
 
+      <div class="pending-banner hidden" id="pending-claims-banner" onclick="switchTab('claim')">
+        <div class="pending-banner-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L14.71 3.86a2 2 0 00-3.42 0z"/></svg></div>
+        <div class="pending-banner-body">
+          <div class="pending-banner-title">아직 이체 안 한 청구가 있어요</div>
+          <div class="pending-banner-sub" id="pending-claims-summary"></div>
+        </div>
+        <div class="pending-banner-arrow">›</div>
+      </div>
+
       <div class="card">
         <div class="card-title">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
