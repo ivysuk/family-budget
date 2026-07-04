@@ -41,8 +41,26 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   document.getElementById('refresh-btn').addEventListener('click', () => loadDashboard(true));
+  initSeniorMode();
   boot();
 });
+
+// ---------------------------------------------------------------------
+// 큰 글씨 모드 (노약자용 - 글씨 크게, 대비 진하게)
+// ---------------------------------------------------------------------
+
+const SENIOR_MODE_KEY = 'familyBudgetSeniorMode';
+
+function initSeniorMode() {
+  const btn = document.getElementById('senior-mode-btn');
+  btn.classList.toggle('active', document.documentElement.classList.contains('senior-mode'));
+  btn.addEventListener('click', () => {
+    const on = !document.documentElement.classList.contains('senior-mode');
+    document.documentElement.classList.toggle('senior-mode', on);
+    btn.classList.toggle('active', on);
+    localStorage.setItem(SENIOR_MODE_KEY, on ? '1' : '0');
+  });
+}
 
 function switchTab(name) {
   document.querySelectorAll('.tab-view').forEach(v => v.classList.toggle('hidden', v.dataset.view !== name));

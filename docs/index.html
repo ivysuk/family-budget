@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script>if (localStorage.getItem('familyBudgetSeniorMode') === '1') document.documentElement.classList.add('senior-mode');</script>
 </head>
 <body>
 
@@ -23,9 +24,12 @@
       <h1>가족 공동통장</h1>
       <span class="ym" id="ym-label"></span>
     </div>
-    <button class="icon-btn" id="refresh-btn" title="새로고침">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-    </button>
+    <div class="topbar-actions">
+      <button class="icon-btn text-btn" id="senior-mode-btn" title="큰 글씨 모드">가+</button>
+      <button class="icon-btn" id="refresh-btn" title="새로고침">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+      </button>
+    </div>
   </header>
   <div class="status-banner hidden" id="status-banner"></div>
 

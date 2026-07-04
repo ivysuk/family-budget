@@ -60,6 +60,7 @@ input, select { font-family: inherit; }
 .topbar-brand { display: flex; align-items: baseline; gap: 8px; }
 .topbar-brand h1 { font-size: 18px; color: var(--accent); }
 .topbar-brand .ym { font-size: 12px; color: var(--ink-faint); font-weight: 500; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
 .icon-btn {
   width: 36px; height: 36px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -68,6 +69,8 @@ input, select { font-family: inherit; }
 .icon-btn svg { width: 17px; height: 17px; }
 .icon-btn.spinning svg { animation: spin .7s linear; }
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+.icon-btn.text-btn { font-size: 12px; font-weight: 800; }
+.icon-btn.text-btn.active { background: var(--accent); color: #fff; }
 
 main { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 24px; }
 
@@ -284,3 +287,45 @@ input.money { font-variant-numeric: tabular-nums; text-align: right; }
   .icon-btn.spinning svg { animation: none; }
   .skel { animation: none; }
 }
+
+/* ---------- 큰 글씨 모드(노약자용) ---------- */
+.senior-mode {
+  --ink-soft: #4A4230;
+  --ink-faint: #6B6152;
+}
+.senior-mode .balance { font-size: 42px; }
+.senior-mode .balance .unit { font-size: 18px; }
+.senior-mode .hero .eyebrow { font-size: 12px; }
+.senior-mode .hero .sub-item .k { font-size: 12.5px; }
+.senior-mode .hero .sub-item .v { font-size: 17px; }
+.senior-mode .hero-account-name { font-size: 14px; }
+.senior-mode .hero-account-no { font-size: 16px; }
+.senior-mode .hero-account-copy { font-size: 13px; padding: 7px 14px; }
+.senior-mode .card-title h2 { font-size: 18px; }
+.senior-mode .card-title svg { width: 19px; height: 19px; }
+.senior-mode .card .sub { font-size: 14px; }
+.senior-mode label { font-size: 14.5px; }
+.senior-mode input[type="text"], .senior-mode select {
+  font-size: 17px; padding: 13px 14px;
+}
+.senior-mode .btn { font-size: 16.5px; padding: 15px 18px; }
+.senior-mode .btn.small { font-size: 13.5px; padding: 9px 14px; }
+.senior-mode .btn.ghost { font-size: 14.5px; }
+.senior-mode .list-title { font-size: 15.5px; }
+.senior-mode .list-sub { font-size: 13px; }
+.senior-mode .list-amt { font-size: 15.5px; }
+.senior-mode .pill { font-size: 12px; padding: 4px 10px; }
+.senior-mode .msg { font-size: 14px; }
+.senior-mode .ring-name { font-size: 13px; }
+.senior-mode .ring-amt { font-size: 11.5px; }
+.senior-mode .ring-label { font-size: 13.5px; }
+.senior-mode .ring-goal-btn { font-size: 11.5px; padding: 5px 10px; }
+.senior-mode .ring-dormant-pill { font-size: 10.5px; }
+.senior-mode .pending-banner-title { font-size: 14.5px; }
+.senior-mode .pending-banner-sub { font-size: 12.5px; }
+.senior-mode .tab-btn span { font-size: 11.5px; }
+.senior-mode .tab-btn svg { width: 23px; height: 23px; }
+.senior-mode .bar-top { font-size: 13.5px; }
+.senior-mode .checkbox-label { font-size: 13.5px; }
+.senior-mode .amount-input-row input { font-size: 14px; }
+.senior-mode .reconcile-result { font-size: 14px; }
