@@ -52,14 +52,28 @@ document.addEventListener('DOMContentLoaded', () => {
 const SENIOR_MODE_KEY = 'familyBudgetSeniorMode';
 
 function initSeniorMode() {
-  const btn = document.getElementById('senior-mode-btn');
-  btn.classList.toggle('active', document.documentElement.classList.contains('senior-mode'));
-  btn.addEventListener('click', () => {
-    const on = !document.documentElement.classList.contains('senior-mode');
+  const toggle = document.getElementById('senior-mode-toggle');
+  toggle.checked = document.documentElement.classList.contains('senior-mode');
+  toggle.addEventListener('change', () => {
+    const on = toggle.checked;
     document.documentElement.classList.toggle('senior-mode', on);
-    btn.classList.toggle('active', on);
     localStorage.setItem(SENIOR_MODE_KEY, on ? '1' : '0');
+    showToast(on ? '노약자 모드로 변경되었습니다' : '기본 모드로 변경되었습니다');
   });
+}
+
+function showToast(text) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.className = 'toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => toast.classList.remove('show'), 1800);
 }
 
 function switchTab(name) {

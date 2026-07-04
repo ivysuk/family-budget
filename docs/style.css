@@ -69,8 +69,30 @@ input, select { font-family: inherit; }
 .icon-btn svg { width: 17px; height: 17px; }
 .icon-btn.spinning svg { animation: spin .7s linear; }
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
-.icon-btn.text-btn { font-size: 12px; font-weight: 800; }
-.icon-btn.text-btn.active { background: var(--accent); color: #fff; }
+.senior-switch { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.senior-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.senior-switch-text { font-size: 11px; font-weight: 700; color: var(--ink-soft); }
+.senior-switch-track {
+  flex: none; width: 42px; height: 24px; border-radius: 999px;
+  background: var(--line); position: relative; transition: background .2s ease;
+}
+.senior-switch-thumb {
+  position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(43,36,29,.3); transition: transform .2s ease;
+}
+.senior-switch input:checked + .senior-switch-track { background: var(--accent); }
+.senior-switch input:checked + .senior-switch-track .senior-switch-thumb { transform: translateX(18px); }
+.senior-switch input:focus-visible + .senior-switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- 토스트(짧은 안내 메시지) ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(10px);
+  background: var(--ink); color: #fff; padding: 11px 20px; border-radius: 999px;
+  font-size: 13px; font-weight: 700; box-shadow: var(--shadow);
+  opacity: 0; pointer-events: none; transition: opacity .25s ease, transform .25s ease;
+  z-index: 100; max-width: 82%; text-align: center; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 main { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 24px; }
 
@@ -358,4 +380,4 @@ input.money { font-variant-numeric: tabular-nums; text-align: right; }
 .senior-mode .checkbox-label { font-size: 15px; font-weight: 700; }
 .senior-mode .amount-input-row input { font-size: 16px; font-weight: 700; }
 .senior-mode .reconcile-result { font-size: 16px; font-weight: 700; }
-.senior-mode .icon-btn.text-btn { font-size: 13px; }
+.senior-mode .senior-switch-text { font-size: 12px; font-weight: 800; }

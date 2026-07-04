@@ -25,7 +25,11 @@
       <span class="ym" id="ym-label"></span>
     </div>
     <div class="topbar-actions">
-      <button class="icon-btn text-btn" id="senior-mode-btn" title="큰 글씨 모드">가+</button>
+      <label class="senior-switch" title="노약자 모드">
+        <span class="senior-switch-text">노약자</span>
+        <input type="checkbox" id="senior-mode-toggle">
+        <span class="senior-switch-track"><span class="senior-switch-thumb"></span></span>
+      </label>
       <button class="icon-btn" id="refresh-btn" title="새로고침">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
       </button>
@@ -64,7 +68,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
           <h2>이번 달 목표</h2>
         </div>
-        <div class="sub">사람마다 정해둔 월 생활비를 다 채우면 완료예요</div>
+        <div class="sub">사람마다 정해둔 월 생활비를 다 채우면 완료돼요</div>
         <div class="ring-grid" id="ring-grid"></div>
       </div>
 
