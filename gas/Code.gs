@@ -390,6 +390,39 @@ function getLedger() {
 }
 
 // -------------------------------------------------------------------------
+// 일회성 정리 도구: 과거 버그(중복 완료처리/동시접속 등)로 거래원장에 같은
+// 거래(출처유형+출처ID)가 두 번 이상 찍힌 행을 정리한다.
+//
+// 웹 API에는 일부러 연결하지 않았다 — URL로 실수로/반복 호출되면 위험하므로,
+// Apps Script 편집기 상단의 함수 선택 드롭다운에서 dedupeLedger를 고르고
+// 직접 "실행" 버튼을 눌러 한 번만 돌린다. 출처유형+출처ID가 같은 행이 여러
+// 개면 가장 먼저 기록된 한 줄만 남기고 나머지를 지운다. 중복이 없으면 아무
+// 것도 지우지 않으니 안심하고 다시 실행해도 된다. 실행 후 로그(보기 -> 실행
+// 기록)에서 몇 줄 지웠는지 확인할 수 있다.
+// -------------------------------------------------------------------------
+
+function dedupeLedger() {
+  const sheet = getSheet('거래원장');
+  const data = sheet.getDataRange().getValues();
+  const seen = {};
+  const rowsToDelete = [];
+  for (let i = 1; i < data.length; i++) {
+    const sourceType = data[i][6];
+    const sourceId = data[i][7];
+    if (!sourceType || !sourceId) continue; // 출처 정보 없는 수동 입력행은 건드리지 않음
+    const key = sourceType + '::' + sourceId;
+    if (seen[key]) {
+      rowsToDelete.push(i + 1); // 시트 행 번호 (1-indexed + 헤더)
+    } else {
+      seen[key] = true;
+    }
+  }
+  rowsToDelete.sort((a, b) => b - a).forEach(rowNum => sheet.deleteRow(rowNum));
+  Logger.log('중복 제거된 행 수: ' + rowsToDelete.length);
+  return { deletedRows: rowsToDelete.length };
+}
+
+// -------------------------------------------------------------------------
 // 잔액대사
 // -------------------------------------------------------------------------
 
