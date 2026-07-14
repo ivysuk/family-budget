@@ -148,6 +148,8 @@ function renderSkeleton() {
   document.getElementById('payment-list').innerHTML = rowSkeleton(3);
   document.getElementById('claim-list').innerHTML = rowSkeleton(3);
   document.getElementById('recurring-list').innerHTML = rowSkeleton(2);
+  document.getElementById('pending-recurring-card').classList.remove('hidden');
+  document.getElementById('pending-recurring-list').innerHTML = rowSkeleton(1);
 }
 
 function loadMonthPicker() {
@@ -200,6 +202,7 @@ function renderDashboard(data) {
   renderPaymentList(data.payments);
   renderClaimList(data.claims);
   renderRecurringList(data.recurring);
+  renderPendingRecurringList(data.pendingRecurring || []);
 }
 
 function renderHeroStats(data) {
@@ -295,7 +298,7 @@ function renderClaimList(claims) {
   box.innerHTML = claims.map(c => {
     const pillClass = c.status === '이체완료' ? 'done' : 'pending';
     const recurringBadge = c.isRecurring ? '<span class="pill recurring">정기</span>' : '';
-    const btn = c.status === '청구중' ? `<button class="btn small" style="margin-top:6px;" onclick="markDone('${c.claimId}')">완료 처리</button>` : '';
+    const btn = c.status === '청구중' ? `<button class="btn small" style="margin-top:6px;" onclick="markDone('${c.claimId}', this)">완료 처리</button>` : '';
     return `<div class="list-row">
       <div class="list-icon gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconFor(c.category)}</svg></div>
       <div class="list-body"><div class="list-title">${c.claimant}${recurringBadge}</div><div class="list-sub">${c.category}${c.memo ? ' · ' + c.memo : ''}</div>${btn}</div>
@@ -314,6 +317,27 @@ function renderMemberList(members) {
       <div class="list-icon${dormant ? '' : ' gold'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg></div>
       <div class="list-body"><div class="list-title">${m.name}</div><div class="list-sub">월 목표 ${fmt(m.target)}원</div></div>
       <div class="list-right"><button class="btn small" onclick="doToggleStatus('${m.name}','${m.status}')">${dormant ? '휴면 해제' : '휴면 전환'}</button></div>
+    </div>`;
+  }).join('');
+}
+
+function renderPendingRecurringList(items) {
+  const card = document.getElementById('pending-recurring-card');
+  const box = document.getElementById('pending-recurring-list');
+  if (!items.length) { card.classList.add('hidden'); box.innerHTML = ''; return; }
+  card.classList.remove('hidden');
+  box.innerHTML = items.map((item, i) => {
+    const inputId = 'pending-amt-' + i;
+    return `<div class="list-row">
+      <div class="list-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconFor('렌탈료')}</svg></div>
+      <div class="list-body">
+        <div class="list-title">${item.name}</div>
+        <div class="list-sub">${item.cycle}</div>
+        <div class="inline-row" style="margin-top:8px;">
+          <div><input type="text" inputmode="numeric" class="money" id="${inputId}" value="${item.suggestedAmount ? fmt(item.suggestedAmount) : ''}" placeholder="금액 입력"></div>
+          <button class="btn small" type="button" onclick="doClaimRecurring('${item.name}', '${inputId}', this)">청구하기</button>
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -392,29 +416,31 @@ function doToggleStatus(name, currentStatus) {
   api('setMemberStatus', { name: name, status: next }).then(loadDashboard);
 }
 
-function doPayment() {
+function doPayment(btn) {
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const name = document.getElementById('pay-name').value;
   const amount = rawNumber(document.getElementById('pay-amount'));
-  if (!amount) { setMsg('pay-msg', '금액을 입력해주세요.', false); return; }
+  if (!amount) { setMsg('pay-msg', '금액을 입력해주세요.', false); if (btn) btn.disabled = false; return; }
   api('recordPayment', { ym: YM, name: name, amount: amount }).then(() => {
     setMsg('pay-msg', '등록 완료했습니다.', true);
     document.getElementById('pay-amount').value = '';
     loadDashboard();
-  }).catch(e => setMsg('pay-msg', '오류: ' + e.message, false));
+  }).catch(e => setMsg('pay-msg', '오류: ' + e.message, false)).finally(() => { if (btn) btn.disabled = false; });
 }
 
-function doClaim() {
+function doClaim(btn) {
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const claimant = document.getElementById('claim-name').value;
   const category = document.getElementById('claim-category').value;
   const amount = rawNumber(document.getElementById('claim-amount'));
   const memo = document.getElementById('claim-memo').value;
-  if (!amount) { setMsg('claim-msg', '금액을 입력해주세요.', false); return; }
+  if (!amount) { setMsg('claim-msg', '금액을 입력해주세요.', false); if (btn) btn.disabled = false; return; }
   api('submitClaim', { claimant: claimant, category: category, amount: amount, memo: memo }).then(() => {
     setMsg('claim-msg', '청구했습니다.', true);
     document.getElementById('claim-amount').value = '';
     document.getElementById('claim-memo').value = '';
     loadDashboard();
-  }).catch(e => setMsg('claim-msg', '오류: ' + e.message, false));
+  }).catch(e => setMsg('claim-msg', '오류: ' + e.message, false)).finally(() => { if (btn) btn.disabled = false; });
 }
 
 function doAddCategory() {
@@ -423,14 +449,30 @@ function doAddCategory() {
   api('addCategory', { name: name }).then(loadDashboard);
 }
 
-function markDone(claimId) { api('markReimbursed', { claimId: claimId }).then(loadDashboard); }
+function markDone(claimId, btn) {
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
+  api('markReimbursed', { claimId: claimId }).then(r => {
+    if (r && r.error) { alert(r.error); if (btn) btn.disabled = false; return; }
+    loadDashboard();
+  }).catch(e => { alert('오류: ' + e.message); if (btn) btn.disabled = false; });
+}
+
+function doClaimRecurring(name, inputId, btn) {
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
+  const amount = rawNumber(document.getElementById(inputId));
+  if (!amount) { alert('금액을 입력해주세요.'); if (btn) btn.disabled = false; return; }
+  api('claimRecurring', { name: name, ym: YM, amount: amount }).then(r => {
+    if (r && r.error) { alert(r.error); if (btn) btn.disabled = false; return; }
+    loadDashboard();
+  }).catch(e => { alert('오류: ' + e.message); if (btn) btn.disabled = false; });
+}
 
 function doRecurring() {
   const name = document.getElementById('rec-name').value;
   const amount = rawNumber(document.getElementById('rec-amount'));
   const cycle = document.getElementById('rec-cycle').value;
-  if (!name || !amount) { setMsg('rec-msg', '항목명/금액을 입력해주세요.', false); return; }
-  api('registerRecurring', { name: name, amount: amount, cycle: cycle }).then(() => {
+  if (!name) { setMsg('rec-msg', '항목명을 입력해주세요.', false); return; }
+  api('registerRecurring', { name: name, amount: amount || 0, cycle: cycle }).then(() => {
     setMsg('rec-msg', '등록했습니다.', true);
     document.getElementById('rec-name').value = '';
     document.getElementById('rec-amount').value = '';
@@ -438,12 +480,13 @@ function doRecurring() {
   }).catch(e => setMsg('rec-msg', '오류: ' + e.message, false));
 }
 
-function doReconcile() {
+function doReconcile(btn) {
+  if (btn) { if (btn.disabled) return; btn.disabled = true; }
   const actual = rawNumber(document.getElementById('actual-balance'));
   const box = document.getElementById('reconcile-msg');
-  if (!actual) { box.innerHTML = '<div class="msg err">실제 잔액을 입력해주세요.</div>'; return; }
+  if (!actual) { box.innerHTML = '<div class="msg err">실제 잔액을 입력해주세요.</div>'; if (btn) btn.disabled = false; return; }
   api('reconcile', { ym: YM, amount: actual }).then(r => {
     const ok = r.diff === 0;
     box.innerHTML = `<div class="reconcile-result">시스템 ${fmt(r.systemBalance)}원 · 실제 ${fmt(r.actualBalance)}원<br>차이 <span class="diff ${ok ? 'ok' : 'bad'}">${fmt(r.diff)}원${ok ? ' (일치)' : ''}</span></div>`;
-  }).catch(e => box.innerHTML = `<div class="msg err">오류: ${e.message}</div>`);
+  }).catch(e => box.innerHTML = `<div class="msg err">오류: ${e.message}</div>`).finally(() => { if (btn) btn.disabled = false; });
 }

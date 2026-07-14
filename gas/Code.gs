@@ -30,6 +30,7 @@ function handleApi(e) {
       case 'submitClaim': result = submitExpenseClaim(p.claimant, p.category, p.amount, p.memo); break;
       case 'markReimbursed': result = markReimbursed(p.claimId); break;
       case 'registerRecurring': result = registerRecurring(p.name, p.amount, p.cycle); break;
+      case 'claimRecurring': result = claimRecurringForMonth(p.name, p.ym, p.amount); break;
       case 'addCategory': result = addCategory(p.name); break;
       case 'setTarget': result = setMemberTarget(p.name, p.amount); break;
       case 'addMember': result = addMember(p.name, p.target); break;
@@ -275,28 +276,47 @@ function getExpenseClaims(status) {
 }
 
 function markReimbursed(claimId) {
-  const sheet = getSheet('지출청구');
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === claimId) {
-      const rowNum = i + 1;
-      const today = new Date();
-      sheet.getRange(rowNum, 7).setValue('이체완료');
-      sheet.getRange(rowNum, 8).setValue(today);
-      postLedger(today, data[i][3], '공동통장', data[i][4], data[i][2], '지출 정산: ' + data[i][5], '지출청구', data[i][0]);
-      return { ok: true };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sheet = getSheet('지출청구');
+    const data = sheet.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === claimId) {
+        if (data[i][6] === '이체완료') {
+          // 이미 처리된 청구를 다시 완료 처리하면 거래원장에 같은 지출이 두 번
+          // 기록돼서 잔액이 어긋난다 (중복 클릭/동시 접속 방지)
+          return { ok: false, error: '이미 완료 처리된 청구입니다.' };
+        }
+        const rowNum = i + 1;
+        const today = new Date();
+        sheet.getRange(rowNum, 7).setValue('이체완료');
+        sheet.getRange(rowNum, 8).setValue(today);
+        postLedger(today, data[i][3], '공동통장', data[i][4], data[i][2], '지출 정산: ' + data[i][5], '지출청구', data[i][0]);
+        return { ok: true };
+      }
     }
+    return { ok: false, error: '청구ID를 찾을 수 없음: ' + claimId };
+  } finally {
+    lock.releaseLock();
   }
-  return { ok: false, error: '청구ID를 찾을 수 없음: ' + claimId };
 }
 
 // -------------------------------------------------------------------------
-// 렌탈료(정기지출) 등록 + 매달 자동으로 지출청구에 반영
+// 렌탈료(정기지출) 등록 + 이번 달 미입력 항목 확인 + 사용자가 직접 청구 확정
+//
+// (예전엔 대시보드를 열 때마다 자동으로 청구를 생성했는데, 가족이 동시에 여러
+//  기기로 접속하면 잠금 없이 같은 달 같은 항목이 두 번 생기는 경쟁 상태가 있었고
+//  그게 그대로 완료 처리되면서 잔액이 어긋나는 원인이었다. 이제는 자동 생성 대신
+//  "이번 달에 아직 확정 안 된 정기지출" 목록만 보여주고, 금액을 확인/수정한 뒤
+//  사용자가 직접 "청구하기"를 눌러야만 실제 청구 한 건이 생긴다. 등록 시 넣는
+//  금액은 다음 달 입력창의 기본값(참고용)일 뿐, 매달 금액이 달라도 그때그때
+//  입력해서 청구하면 된다.)
 // -------------------------------------------------------------------------
 
 function registerRecurring(itemName, amount, cycle) {
-  if (!itemName || !amount) throw new Error('항목명/금액은 필수입니다.');
-  getSheet('렌탈료(정기지출)').appendRow([itemName, Number(amount), cycle || '매월', '']);
+  if (!itemName) throw new Error('항목명은 필수입니다.');
+  getSheet('렌탈료(정기지출)').appendRow([itemName, Number(amount) || 0, cycle || '매월', '']);
   return { ok: true };
 }
 
@@ -307,20 +327,48 @@ function getRecurringItems() {
     .map(row => ({ name: row[0], amount: row[1], cycle: row[2], nextDate: row[3] }));
 }
 
-function ensureRecurringClaimsForMonth(yearMonth) {
+function getPendingRecurringForMonth(yearMonth) {
   const recurring = getRecurringItems();
-  if (!recurring.length) return;
-  const sheet = getSheet('지출청구');
-  const rows = sheet.getDataRange().getValues().slice(1);
-  recurring.forEach(item => {
-    const tag = '[정기:' + item.name + ':' + yearMonth + ']';
+  if (!recurring.length) return [];
+  const rows = getSheet('지출청구').getDataRange().getValues().slice(1);
+  return recurring
+    .filter(item => {
+      const tag = '[정기:' + item.name + ':' + yearMonth + ']';
+      return !rows.some(row => String(row[5] || '').indexOf(tag) !== -1);
+    })
+    .map(item => ({ name: item.name, suggestedAmount: item.amount, cycle: item.cycle }));
+}
+
+function claimRecurringForMonth(itemName, yearMonth, amount) {
+  if (!itemName || !yearMonth || !amount) throw new Error('항목/연월/금액은 필수입니다.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const tag = '[정기:' + itemName + ':' + yearMonth + ']';
+    const sheet = getSheet('지출청구');
+    const rows = sheet.getDataRange().getValues().slice(1);
     const already = rows.some(row => String(row[5] || '').indexOf(tag) !== -1);
-    if (!already) {
-      const today = new Date();
-      const claimId = 'R' + today.getTime() + Math.floor(Math.random() * 1000);
-      sheet.appendRow([claimId, today, '정기지출', '렌탈료', item.amount, tag + ' ' + item.name, '청구중', '']);
+    if (already) return { ok: false, error: '이미 이번 달에 등록된 정기지출입니다.' };
+
+    const today = new Date();
+    const claimId = 'R' + today.getTime() + Math.floor(Math.random() * 1000);
+    sheet.appendRow([claimId, today, '정기지출', '렌탈료', Number(amount), tag + ' ' + itemName, '청구중', '']);
+    updateRecurringReferenceAmount(itemName, Number(amount));
+    return { ok: true, claimId };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function updateRecurringReferenceAmount(itemName, amount) {
+  const sheet = getSheet('렌탈료(정기지출)');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0] === itemName) {
+      sheet.getRange(i + 1, 2).setValue(amount);
+      return;
     }
-  });
+  }
 }
 
 // -------------------------------------------------------------------------
@@ -435,7 +483,6 @@ function getMemberCarryover(name, uptoYearMonth, target) {
 // -------------------------------------------------------------------------
 
 function getDashboard(yearMonth) {
-  ensureRecurringClaimsForMonth(yearMonth);
   const members = getFamilyMembers().map(m => {
     const carryover = getMemberCarryover(m.name, yearMonth, m.target);
     return Object.assign({}, m, { carryover: carryover, effectiveTarget: m.target + carryover });
@@ -445,6 +492,7 @@ function getDashboard(yearMonth) {
     payments: getMonthlyPayments(yearMonth),
     claims: getExpenseClaims(null),
     recurring: getRecurringItems(),
+    pendingRecurring: getPendingRecurringForMonth(yearMonth),
     categories: getCategories(),
     systemBalance: computeSystemBalance(),
     initialBalance: getInitialBalance(),
