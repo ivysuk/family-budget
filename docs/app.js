@@ -236,15 +236,32 @@ function renderDashboard(data) {
   loadMonthlyReport();
 }
 
-// 이번 달 리포트 — 로컬 PC에서 매달 1일 만들어서 시트에 저장해둔 걸 그냥 읽어오기만 한다
-// (여기서 직접 뭘 생성하진 않음, 순수 조회라 빠름).
+// 월간 리포트 — 로컬 PC에서 매달 1일 만들어서 시트에 저장해둔 걸 그냥 읽어오기만 한다(여기서 직접
+// 뭘 생성하진 않음, 순수 조회라 빠름). 리포트는 항상 "지난달"까지만 존재하므로(이번 달 건 다음달
+// 1일에 생김), 대시보드 전체가 보는 YM과 별개로 독자적인 월(reportYM)을 갖고, 카드 안에서 좌우
+// 화살표로 직접 넘겨볼 수 있게 한다 — 설정 탭 드롭다운을 거칠 필요 없게(2026-08-10, 보스 요청).
+function shiftYearMonth(ym, delta) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+let reportYM = shiftYearMonth(currentYearMonth(), -1); // 기본값: 지난달(리포트가 실제로 존재하는 달)
+
+function changeReportMonth(delta) {
+  reportYM = shiftYearMonth(reportYM, delta);
+  loadMonthlyReport();
+}
+
 function loadMonthlyReport() {
   const box = document.getElementById('monthly-report-box');
+  const label = document.getElementById('report-ym-label');
   if (!box) return;
-  api('monthlyReport', { ym: YM }).then(r => {
+  if (label) label.textContent = reportYM;
+  api('monthlyReport', { ym: reportYM }).then(r => {
     box.innerHTML = r.content
       ? '<p class="report-text">' + String(r.content).replace(/\n/g, '<br>') + '</p>'
-      : '<div class="empty-state">아직 이번 달 리포트가 없어요.</div>';
+      : '<div class="empty-state">이 달은 리포트가 없어요.</div>';
   }).catch(() => { /* 리포트 로드 실패는 조용히 무시 — 대시보드 나머지엔 영향 없음 */ });
 }
 

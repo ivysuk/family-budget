@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 <script>if (localStorage.getItem('familyBudgetSeniorMode') === '1') document.documentElement.classList.add('senior-mode');</script>
 </head>
 <body>
@@ -64,12 +64,19 @@
       </div>
 
       <div class="card">
-        <div class="card-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/><path d="M9 13h6M9 17h6"/></svg>
-          <h2>이번 달 리포트</h2>
+        <div class="card-title" style="justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M17 21H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z"/><path d="M9 13h6M9 17h6"/></svg>
+            <h2>월간 리포트</h2>
+          </div>
+          <div class="report-nav">
+            <button type="button" class="report-nav-btn" onclick="changeReportMonth(-1)">‹</button>
+            <span id="report-ym-label"></span>
+            <button type="button" class="report-nav-btn" onclick="changeReportMonth(1)">›</button>
+          </div>
         </div>
-        <div class="sub">매달 1일 자동으로 정리돼요</div>
-        <div id="monthly-report-box"><div class="empty-state">아직 이번 달 리포트가 없어요.</div></div>
+        <div class="sub">매달 1일 지난달 걸 자동으로 정리해둬요, 화살표로 다른 달도 볼 수 있어요</div>
+        <div id="monthly-report-box"></div>
       </div>
 
       <div class="card">
@@ -254,6 +261,6 @@
   </div>
 </div>
 
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
