@@ -233,6 +233,7 @@ function renderDashboard(data) {
   renderPaymentList(data.payments);
   renderClaimList(data.claims);
   renderRecurringList(data.recurring);
+  loadMonthlyReport();
 }
 
 function renderHeroStats(data) {
@@ -339,35 +340,37 @@ function renderClaimList(claims) {
   if (!claims.length) { box.innerHTML = '<div class="empty-state">아직 지출 청구가 없어요.</div>'; return; }
   box.innerHTML = claims.map(c => {
     const recurringBadge = c.isRecurring ? '<span class="pill recurring">정기</span>' : '';
+    const d = c.date ? new Date(c.date) : null;
+    const dateStr = d ? (d.getMonth() + 1) + '월 ' + d.getDate() + '일' : '-';
     if (c.needsAmount) {
       return `<div class="list-row needs-amount">
         <div class="list-icon warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconFor(c.category)}</svg></div>
         <div class="list-body">
           <div class="list-title">${c.claimant}${recurringBadge}</div>
-          <div class="list-sub">${c.category}${c.memo ? ' · ' + c.memo : ''}</div>
+          <div class="list-sub">${dateStr} · ${c.category}${c.memo ? ' · ' + c.memo : ''}</div>
           <div class="amount-input-row">
             <input type="text" inputmode="numeric" class="money" id="amt-input-${c.claimId}" placeholder="이번 달 실제 청구액">
-            <button class="btn small" type="button" onclick="doSetClaimAmount('${c.claimId}')">저장</button>
+            <button class="btn small" type="button" onclick="doSetClaimAmount(this,'${c.claimId}')">저장</button>
           </div>
         </div>
         <div class="list-right"><span class="pill pending">금액 입력 필요</span></div>
       </div>`;
     }
     const pillClass = c.status === '이체완료' ? 'done' : 'pending';
-    const btn = c.status === '청구중' ? `<button class="btn small" style="margin-top:6px;" onclick="markDone('${c.claimId}')">완료 처리</button>` : '';
+    const btn = c.status === '청구중' ? `<button class="btn small" style="margin-top:6px;" onclick="markDone(this,'${c.claimId}')">완료 처리</button>` : '';
     return `<div class="list-row">
       <div class="list-icon gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconFor(c.category)}</svg></div>
-      <div class="list-body"><div class="list-title">${c.claimant}${recurringBadge}</div><div class="list-sub">${c.category}${c.memo ? ' · ' + c.memo : ''}</div>${btn}</div>
+      <div class="list-body"><div class="list-title">${c.claimant}${recurringBadge}</div><div class="list-sub">${dateStr} · ${c.category}${c.memo ? ' · ' + c.memo : ''}</div>${btn}</div>
       <div class="list-right"><div class="list-amt">${fmt(c.amount)}원</div><span class="pill ${pillClass}">${c.status}</span></div>
     </div>`;
   }).join('');
 }
 
-function doSetClaimAmount(claimId) {
+function doSetClaimAmount(btn, claimId) {
   const input = document.getElementById('amt-input-' + claimId);
   const amount = rawNumber(input);
   if (!amount) { alert('금액을 입력해주세요.'); return; }
-  api('setClaimAmount', { claimId: claimId, amount: amount }).then(loadDashboard)
+  withLoading(btn, () => api('setClaimAmount', { claimId: claimId, amount: amount })).then(loadDashboard)
     .catch(e => alert('오류: ' + e.message));
 }
 
@@ -380,7 +383,7 @@ function renderMemberList(members) {
     return `<div class="list-row">
       <div class="list-icon${dormant ? '' : ' gold'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 016-6h4a6 6 0 016 6v1"/></svg></div>
       <div class="list-body"><div class="list-title">${m.name}</div><div class="list-sub">월 목표 ${fmt(m.target)}원</div></div>
-      <div class="list-right"><button class="btn small" onclick="doToggleStatus('${m.name}','${m.status}')">${dormant ? '휴면 해제' : '휴면 전환'}</button></div>
+      <div class="list-right"><button class="btn small" onclick="doToggleStatus(this,'${m.name}','${m.status}')">${dormant ? '휴면 해제' : '휴면 전환'}</button></div>
     </div>`;
   }).join('');
 }
@@ -407,11 +410,47 @@ function renderRecurringList(items) {
 
 function setMsg(id, text, ok) { const el = document.getElementById(id); el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); }
 
-function doSetInitialBalance() {
+// 구글 앱스크립트 응답이 몇 초씩 걸릴 때가 있어서, 요청 보내는 동안 버튼을 비활성화해 중복 클릭(중복
+// 등록)을 막는다 — "납부를 두 번 눌러서 두 번 기록되는" 문제의 원인이었다(2026-08-10).
+function withLoading(btn, promiseFn) {
+  if (!btn) return promiseFn();
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '처리 중...';
+  return promiseFn().finally(() => { btn.disabled = false; btn.textContent = orig; });
+}
+
+function doSetInitialBalance(btn) {
   const raw = rawNumber(document.getElementById('initial-balance-input'));
   if (!raw) { setMsg('initial-balance-msg', '금액을 입력해주세요.', false); return; }
-  api('setInitialBalance', { amount: raw }).then(() => { setMsg('initial-balance-msg', '저장했습니다.', true); loadDashboard(); })
+  withLoading(btn, () => api('setInitialBalance', { amount: raw }))
+    .then(() => { setMsg('initial-balance-msg', '저장했습니다.', true); loadDashboard(); })
     .catch(e => setMsg('initial-balance-msg', '오류: ' + e.message, false));
+}
+
+// 예금이자(수동 입력) — 은행이 넣어준 이자를 통장 보고 직접 입력. 월별납부(멤버별 목표달성)엔 안 잡히고
+// 잔액에만 반영된다.
+function doInterest(btn) {
+  const raw = rawNumber(document.getElementById('interest-amount'));
+  const memo = document.getElementById('interest-memo').value;
+  if (!raw) { setMsg('interest-msg', '금액을 입력해주세요.', false); return; }
+  withLoading(btn, () => api('recordInterest', { amount: raw, memo: memo })).then(() => {
+    setMsg('interest-msg', '반영했습니다.', true);
+    document.getElementById('interest-amount').value = '';
+    document.getElementById('interest-memo').value = '';
+    loadDashboard();
+  }).catch(e => setMsg('interest-msg', '오류: ' + e.message, false));
+}
+
+// 이번 달 AI 리포트 — 대시보드 로드와 별도로 지연호출(Gemini가 몇 초 걸릴 수 있어서 나머지 화면을
+// 안 막고 따로 보여줌), 백엔드에서 달마다 캐싱하니 두 번째부터는 빠르다.
+function loadMonthlyReport() {
+  const box = document.getElementById('monthly-report-box');
+  if (!box) return;
+  box.innerHTML = '<div class="msg">리포트 불러오는 중...</div>';
+  api('monthlyReport', { ym: YM }).then(r => {
+    box.innerHTML = '<p class="report-text">' + String(r.content).replace(/\n/g, '<br>') + '</p>';
+  }).catch(e => { box.innerHTML = '<div class="msg err">리포트를 불러오지 못했어요: ' + e.message + '</div>'; });
 }
 
 let goalModalName = null;
@@ -437,21 +476,21 @@ function closeGoalModal() {
   goalModalName = null;
 }
 
-function doSetTargetModal() {
+function doSetTargetModal(btn) {
   if (!goalModalName) return;
   const raw = rawNumber(document.getElementById('goal-modal-input'));
   if (!raw) return;
-  api('setTarget', { name: goalModalName, amount: raw }).then(() => {
+  withLoading(btn, () => api('setTarget', { name: goalModalName, amount: raw })).then(() => {
     closeGoalModal();
     loadDashboard();
   });
 }
 
-function doAddMember() {
+function doAddMember(btn) {
   const name = document.getElementById('member-name').value.trim();
   const target = rawNumber(document.getElementById('member-target'));
   if (!name) { setMsg('member-msg', '이름을 입력해주세요.', false); return; }
-  api('addMember', { name: name, target: target || 0 }).then(r => {
+  withLoading(btn, () => api('addMember', { name: name, target: target || 0 })).then(r => {
     if (r.error) { setMsg('member-msg', r.error, false); return; }
     setMsg('member-msg', '추가했습니다.', true);
     document.getElementById('member-name').value = '';
@@ -460,29 +499,29 @@ function doAddMember() {
   }).catch(e => setMsg('member-msg', '오류: ' + e.message, false));
 }
 
-function doToggleStatus(name, currentStatus) {
+function doToggleStatus(btn, name, currentStatus) {
   const next = currentStatus === '휴면' ? '활성' : '휴면';
-  api('setMemberStatus', { name: name, status: next }).then(loadDashboard);
+  withLoading(btn, () => api('setMemberStatus', { name: name, status: next })).then(loadDashboard);
 }
 
-function doPayment() {
+function doPayment(btn) {
   const name = document.getElementById('pay-name').value;
   const amount = rawNumber(document.getElementById('pay-amount'));
   if (!amount) { setMsg('pay-msg', '금액을 입력해주세요.', false); return; }
-  api('recordPayment', { ym: YM, name: name, amount: amount }).then(() => {
+  withLoading(btn, () => api('recordPayment', { ym: YM, name: name, amount: amount })).then(() => {
     setMsg('pay-msg', '등록 완료했습니다.', true);
     document.getElementById('pay-amount').value = '';
     loadDashboard();
   }).catch(e => setMsg('pay-msg', '오류: ' + e.message, false));
 }
 
-function doClaim() {
+function doClaim(btn) {
   const claimant = document.getElementById('claim-name').value;
   const category = document.getElementById('claim-category').value;
   const amount = rawNumber(document.getElementById('claim-amount'));
   const memo = document.getElementById('claim-memo').value;
   if (!amount) { setMsg('claim-msg', '금액을 입력해주세요.', false); return; }
-  api('submitClaim', { claimant: claimant, category: category, amount: amount, memo: memo }).then(() => {
+  withLoading(btn, () => api('submitClaim', { claimant: claimant, category: category, amount: amount, memo: memo })).then(() => {
     setMsg('claim-msg', '청구했습니다.', true);
     document.getElementById('claim-amount').value = '';
     document.getElementById('claim-memo').value = '';
@@ -490,13 +529,13 @@ function doClaim() {
   }).catch(e => setMsg('claim-msg', '오류: ' + e.message, false));
 }
 
-function doAddCategory() {
+function doAddCategory(btn) {
   const name = prompt('추가할 지출 항목명을 입력하세요 (예: 관리비)');
   if (!name) return;
-  api('addCategory', { name: name }).then(loadDashboard);
+  withLoading(btn, () => api('addCategory', { name: name })).then(loadDashboard);
 }
 
-function markDone(claimId) { api('markReimbursed', { claimId: claimId }).then(loadDashboard); }
+function markDone(btn, claimId) { withLoading(btn, () => api('markReimbursed', { claimId: claimId })).then(loadDashboard); }
 
 function toggleRecVariable() {
   const checked = document.getElementById('rec-variable').checked;
@@ -511,14 +550,14 @@ function toggleRecVariable() {
   }
 }
 
-function doRecurring() {
+function doRecurring(btn) {
   const name = document.getElementById('rec-name').value;
   const amount = rawNumber(document.getElementById('rec-amount'));
   const cycle = document.getElementById('rec-cycle').value;
   const variable = document.getElementById('rec-variable').checked;
   if (!name) { setMsg('rec-msg', '항목명을 입력해주세요.', false); return; }
   if (!variable && !amount) { setMsg('rec-msg', '금액을 입력해주세요.', false); return; }
-  api('registerRecurring', { name: name, amount: amount || 0, cycle: cycle, variable: variable }).then(() => {
+  withLoading(btn, () => api('registerRecurring', { name: name, amount: amount || 0, cycle: cycle, variable: variable })).then(() => {
     setMsg('rec-msg', '등록했습니다.', true);
     document.getElementById('rec-name').value = '';
     document.getElementById('rec-amount').value = '';
@@ -556,11 +595,11 @@ function fallbackCopyText(text, cb) {
   cb();
 }
 
-function doReconcile() {
+function doReconcile(btn) {
   const actual = rawNumber(document.getElementById('actual-balance'));
   const box = document.getElementById('reconcile-msg');
   if (!actual) { box.innerHTML = '<div class="msg err">실제 잔액을 입력해주세요.</div>'; return; }
-  api('reconcile', { ym: YM, amount: actual }).then(r => {
+  withLoading(btn, () => api('reconcile', { ym: YM, amount: actual })).then(r => {
     const ok = r.diff === 0;
     box.innerHTML = `<div class="reconcile-result">시스템 ${fmt(r.systemBalance)}원 · 실제 ${fmt(r.actualBalance)}원<br>차이 <span class="diff ${ok ? 'ok' : 'bad'}">${fmt(r.diff)}원${ok ? ' (일치)' : ''}</span></div>`;
   }).catch(e => box.innerHTML = `<div class="msg err">오류: ${e.message}</div>`);
