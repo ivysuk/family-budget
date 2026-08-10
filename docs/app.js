@@ -41,9 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
   document.getElementById('refresh-btn').addEventListener('click', () => loadDashboard(true));
+  document.getElementById('claim-date').value = currentDateStr();
   initSeniorMode();
   boot();
 });
+
+function currentDateStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 
 // ---------------------------------------------------------------------
 // 큰 글씨 모드 (노약자용 - 글씨 크게, 대비 진하게)
@@ -537,11 +543,13 @@ function doClaim(btn) {
   const claimant = document.getElementById('claim-name').value;
   const category = document.getElementById('claim-category').value;
   const amount = rawNumber(document.getElementById('claim-amount'));
+  const date = document.getElementById('claim-date').value;
   const memo = document.getElementById('claim-memo').value;
   if (!amount) { setMsg('claim-msg', '금액을 입력해주세요.', false); return; }
-  withLoading(btn, () => api('submitClaim', { claimant: claimant, category: category, amount: amount, memo: memo })).then(() => {
+  withLoading(btn, () => api('submitClaim', { claimant: claimant, category: category, amount: amount, date: date, memo: memo })).then(() => {
     setMsg('claim-msg', '청구했습니다.', true);
     document.getElementById('claim-amount').value = '';
+    document.getElementById('claim-date').value = currentDateStr();
     document.getElementById('claim-memo').value = '';
     loadDashboard();
   }).catch(e => setMsg('claim-msg', '오류: ' + e.message, false));

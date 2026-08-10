@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 <script>if (localStorage.getItem('familyBudgetSeniorMode') === '1') document.documentElement.classList.add('senior-mode');</script>
 </head>
 <body>
@@ -133,6 +133,7 @@
           <button class="btn ghost" onclick="doAddCategory(this)" type="button">+ 항목추가</button>
         </div>
         <label>금액(원)</label><input type="text" inputmode="numeric" class="money" id="claim-amount" placeholder="예: 50,000">
+        <label>날짜</label><input type="date" id="claim-date">
         <label>메모</label><input type="text" id="claim-memo" placeholder="예: 7월 전기요금">
         <button class="btn" onclick="doClaim(this)">청구 등록</button>
         <div class="msg" id="claim-msg"></div>
@@ -261,6 +262,6 @@
   </div>
 </div>
 
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

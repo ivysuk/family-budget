@@ -27,7 +27,7 @@ function handleApi(e) {
     switch (p.action) {
       case 'dashboard': result = getDashboard(p.ym); break;
       case 'recordPayment': result = recordPayment(p.ym, p.name, p.amount); break;
-      case 'submitClaim': result = submitExpenseClaim(p.claimant, p.category, p.amount, p.memo); break;
+      case 'submitClaim': result = submitExpenseClaim(p.claimant, p.category, p.amount, p.memo, p.date); break;
       case 'markReimbursed': result = markReimbursed(p.claimId); break;
       case 'registerRecurring': result = registerRecurring(p.name, p.amount, p.cycle, p.variable); break;
       case 'setClaimAmount': result = setClaimAmount(p.claimId, p.amount); break;
@@ -270,12 +270,13 @@ function getMonthlyPayments(yearMonth) {
 // 지출 청구 (가족이 먼저 쓰고 청구 -> 보스가 이체)
 // -------------------------------------------------------------------------
 
-function submitExpenseClaim(claimant, category, amount, memo) {
+function submitExpenseClaim(claimant, category, amount, memo, dateStr) {
   if (!claimant || !category || !amount) throw new Error('청구자/항목/금액은 필수입니다.');
   const sheet = getSheet('지출청구');
-  const today = new Date();
-  const claimId = 'C' + today.getTime();
-  sheet.appendRow([claimId, today, claimant, category, Number(amount), memo || '', '청구중', '']);
+  const now = new Date();
+  const claimId = 'C' + now.getTime();
+  const claimDate = dateStr ? new Date(dateStr + 'T00:00:00') : now;
+  sheet.appendRow([claimId, claimDate, claimant, category, Number(amount), memo || '', '청구중', '']);
   return { ok: true, claimId };
 }
 
