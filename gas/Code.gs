@@ -43,6 +43,7 @@ function handleApi(e) {
       case 'recordInterest': result = recordInterest(p.amount, p.memo); break;
       case 'saveMonthlyReport': result = saveMonthlyReport(p.ym, p.content); break;
       case 'monthlyReport': result = getMonthlyReport(p.ym); break;
+      case 'deleteMonthlyReport': result = deleteMonthlyReport(p.ym); break;
       default: result = { error: 'unknown action: ' + p.action };
     }
     return jsonOut(result);
@@ -483,6 +484,20 @@ function getMonthlyReport(yearMonth) {
     }
   }
   return { yearMonth: yearMonth, content: null };
+}
+
+// 예전 Gemini 버전이 "API키 없음" 안내문까지 실제 리포트인 것처럼 캐싱해버린 잘못된 행을 지우는
+// 일회성 정리용(2026-08-10). 정상 상태에서는 쓸 일 없음.
+function deleteMonthlyReport(yearMonth) {
+  const sheet = getSheet('AI리포트');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (ymString(data[i][0]) === yearMonth) {
+      sheet.deleteRow(i + 1);
+      return { ok: true };
+    }
+  }
+  return { ok: false, error: '해당 연월 없음' };
 }
 
 // -------------------------------------------------------------------------
