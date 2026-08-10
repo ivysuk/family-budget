@@ -41,6 +41,8 @@ function handleApi(e) {
       case 'availableMonths': result = getAvailableMonths(); break;
       case 'monthSummary': result = getMonthSummary(p.ym); break;
       case 'recordInterest': result = recordInterest(p.amount, p.memo); break;
+      case 'saveMonthlyReport': result = saveMonthlyReport(p.ym, p.content); break;
+      case 'monthlyReport': result = getMonthlyReport(p.ym); break;
       default: result = { error: 'unknown action: ' + p.action };
     }
     return jsonOut(result);
@@ -79,6 +81,11 @@ function ensureSheetsExist() {
     const s = ss.insertSheet('지출항목');
     s.appendRow(['항목명']);
     ['공과금', '월세', '생활비', '기타'].forEach(c => s.appendRow([c]));
+  }
+
+  if (!ss.getSheetByName('AI리포트')) {
+    const s = ss.insertSheet('AI리포트');
+    s.appendRow(['연월', '내용', '생성일시']);
   }
 
   const fam = getSheet('가족구성원');
@@ -443,6 +450,39 @@ function getMonthSummary(yearMonth) {
   const breakdown = getCategoryBreakdown(yearMonth);
   const totalSpent = breakdown.reduce((s, b) => s + b.total, 0);
   return { yearMonth, totalPaid, totalSpent, breakdown };
+}
+
+// -------------------------------------------------------------------------
+// 월간 리포트 저장/조회 — 글 자체는 로컬 PC에서 Claude가 매달 1일 생성해서 여기로 밀어넣는다
+// (앱스크립트 안에서 직접 Gemini를 부르던 예전 방식은 외부요청 권한 재승인 문제가 반복돼서 폐기,
+// 여기는 순수 시트 read/write만 해서 별도 권한이 필요 없다).
+// -------------------------------------------------------------------------
+
+function saveMonthlyReport(yearMonth, content) {
+  if (!yearMonth || !content) throw new Error('연월/내용은 필수입니다.');
+  const sheet = getSheet('AI리포트');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (ymString(data[i][0]) === yearMonth) {
+      sheet.getRange(i + 1, 2, 1, 2).setValues([[content, new Date()]]);
+      return { ok: true };
+    }
+  }
+  const rowNum = sheet.getLastRow() + 1;
+  sheet.getRange(rowNum, 1).setNumberFormat('@').setValue(yearMonth);
+  sheet.getRange(rowNum, 2, 1, 2).setValues([[content, new Date()]]);
+  return { ok: true };
+}
+
+function getMonthlyReport(yearMonth) {
+  const sheet = getSheet('AI리포트');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (ymString(data[i][0]) === yearMonth) {
+      return { yearMonth: yearMonth, content: data[i][1] };
+    }
+  }
+  return { yearMonth: yearMonth, content: null };
 }
 
 // -------------------------------------------------------------------------

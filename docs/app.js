@@ -233,6 +233,19 @@ function renderDashboard(data) {
   renderPaymentList(data.payments);
   renderClaimList(data.claims);
   renderRecurringList(data.recurring);
+  loadMonthlyReport();
+}
+
+// 이번 달 리포트 — 로컬 PC에서 매달 1일 만들어서 시트에 저장해둔 걸 그냥 읽어오기만 한다
+// (여기서 직접 뭘 생성하진 않음, 순수 조회라 빠름).
+function loadMonthlyReport() {
+  const box = document.getElementById('monthly-report-box');
+  if (!box) return;
+  api('monthlyReport', { ym: YM }).then(r => {
+    box.innerHTML = r.content
+      ? '<p class="report-text">' + String(r.content).replace(/\n/g, '<br>') + '</p>'
+      : '<div class="empty-state">아직 이번 달 리포트가 없어요.</div>';
+  }).catch(() => { /* 리포트 로드 실패는 조용히 무시 — 대시보드 나머지엔 영향 없음 */ });
 }
 
 function renderHeroStats(data) {
