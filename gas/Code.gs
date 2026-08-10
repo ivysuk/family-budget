@@ -41,7 +41,6 @@ function handleApi(e) {
       case 'availableMonths': result = getAvailableMonths(); break;
       case 'monthSummary': result = getMonthSummary(p.ym); break;
       case 'recordInterest': result = recordInterest(p.amount, p.memo); break;
-      case 'monthlyReport': result = getMonthlyReport(p.ym); break;
       default: result = { error: 'unknown action: ' + p.action };
     }
     return jsonOut(result);
@@ -80,11 +79,6 @@ function ensureSheetsExist() {
     const s = ss.insertSheet('지출항목');
     s.appendRow(['항목명']);
     ['공과금', '월세', '생활비', '기타'].forEach(c => s.appendRow([c]));
-  }
-
-  if (!ss.getSheetByName('AI리포트')) {
-    const s = ss.insertSheet('AI리포트');
-    s.appendRow(['연월', '내용', '생성일시']);
   }
 
   const fam = getSheet('가족구성원');
@@ -449,78 +443,6 @@ function getMonthSummary(yearMonth) {
   const breakdown = getCategoryBreakdown(yearMonth);
   const totalSpent = breakdown.reduce((s, b) => s + b.total, 0);
   return { yearMonth, totalPaid, totalSpent, breakdown };
-}
-
-// -------------------------------------------------------------------------
-// AI 월간 리포트 (Gemini) — 숫자만 나열하지 않고 "이런 부분이 아쉬웠다, 다음 달엔 이렇게 해보면
-// 어떨까" 식으로 누구나(어르신도) 바로 읽을 수 있는 짧은 글로 만든다. 한 번 만든 달은 AI리포트
-// 시트에 캐싱해서 다시 안 부른다(매번 부르면 느리고 비용도 남).
-// -------------------------------------------------------------------------
-
-// 키는 코드에 직접 안 적고 Script Properties에 저장한다(공개 저장소라 GitHub 푸시 보호에 막힘) —
-// Apps Script 편집기에서 프로젝트 설정(톱니바퀴) → 스크립트 속성 → GEMINI_API_KEY로 한 번 등록할 것.
-const GEMINI_MODEL = 'gemini-flash-lite-latest';
-
-function getGeminiApiKey() {
-  return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-}
-
-function getMonthlyReport(yearMonth) {
-  const sheet = getSheet('AI리포트');
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (ymString(data[i][0]) === yearMonth) {
-      return { yearMonth: yearMonth, content: data[i][1], cached: true };
-    }
-  }
-  const content = generateMonthlyReportContent(yearMonth);
-  const rowNum = sheet.getLastRow() + 1;
-  sheet.getRange(rowNum, 1).setNumberFormat('@').setValue(yearMonth);
-  sheet.getRange(rowNum, 2, 1, 2).setValues([[content, new Date()]]);
-  return { yearMonth: yearMonth, content: content, cached: false };
-}
-
-function prevYearMonth(yearMonth) {
-  const parts = yearMonth.split('-');
-  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
-  d.setMonth(d.getMonth() - 1);
-  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM');
-}
-
-function generateMonthlyReportContent(yearMonth) {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) {
-    return '리포트 기능을 쓰려면 Apps Script 편집기 → 프로젝트 설정 → 스크립트 속성에 GEMINI_API_KEY를 등록해주세요.';
-  }
-  const thisMonth = getMonthSummary(yearMonth);
-  const lastMonth = getMonthSummary(prevYearMonth(yearMonth));
-
-  const prompt = '너는 한 가족이 같이 쓰는 공동통장을 관리해주는 친절한 가계부 도우미야. ' +
-    '아래는 이번 달과 지난달의 납부/지출 데이터야. 가족 구성원 중엔 어르신도 계시니, ' +
-    '숫자만 나열하지 말고 "이런 부분이 아쉬웠어요", "다음 달엔 이렇게 해보면 어떨까요?" 처럼 ' +
-    '짧고 다정한 말투로 5~7문장 정도로 써줘. 어려운 용어는 쓰지 마.\n\n' +
-    '이번 달(' + yearMonth + '): 납부총액 ' + thisMonth.totalPaid + '원, 지출총액 ' + thisMonth.totalSpent + '원, ' +
-    '항목별 지출: ' + JSON.stringify(thisMonth.breakdown) + '\n' +
-    '지난달(' + prevYearMonth(yearMonth) + '): 납부총액 ' + lastMonth.totalPaid + '원, 지출총액 ' + lastMonth.totalSpent + '원, ' +
-    '항목별 지출: ' + JSON.stringify(lastMonth.breakdown);
-
-  const res = UrlFetchApp.fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent?key=' + apiKey,
-    {
-      method: 'post',
-      contentType: 'application/json',
-      muteHttpExceptions: true,
-      payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-    }
-  );
-
-  if (res.getResponseCode() !== 200) {
-    return '리포트 생성에 실패했어요. 나중에 다시 시도해주세요.';
-  }
-  const json = JSON.parse(res.getContentText());
-  const text = json.candidates && json.candidates[0] && json.candidates[0].content &&
-    json.candidates[0].content.parts[0].text;
-  return text || '리포트 생성에 실패했어요. 나중에 다시 시도해주세요.';
 }
 
 // -------------------------------------------------------------------------

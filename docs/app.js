@@ -233,7 +233,6 @@ function renderDashboard(data) {
   renderPaymentList(data.payments);
   renderClaimList(data.claims);
   renderRecurringList(data.recurring);
-  loadMonthlyReport();
 }
 
 function renderHeroStats(data) {
@@ -440,17 +439,6 @@ function doInterest(btn) {
     document.getElementById('interest-memo').value = '';
     loadDashboard();
   }).catch(e => setMsg('interest-msg', '오류: ' + e.message, false));
-}
-
-// 이번 달 AI 리포트 — 대시보드 로드와 별도로 지연호출(Gemini가 몇 초 걸릴 수 있어서 나머지 화면을
-// 안 막고 따로 보여줌), 백엔드에서 달마다 캐싱하니 두 번째부터는 빠르다.
-function loadMonthlyReport() {
-  const box = document.getElementById('monthly-report-box');
-  if (!box) return;
-  box.innerHTML = '<div class="msg">리포트 불러오는 중...</div>';
-  api('monthlyReport', { ym: YM }).then(r => {
-    box.innerHTML = '<p class="report-text">' + String(r.content).replace(/\n/g, '<br>') + '</p>';
-  }).catch(e => { box.innerHTML = '<div class="msg err">리포트를 불러오지 못했어요: ' + e.message + '</div>'; });
 }
 
 let goalModalName = null;
